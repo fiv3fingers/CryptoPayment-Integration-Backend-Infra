@@ -12,7 +12,8 @@ _port = os.getenv('POSTGRES_PORT')
 
 engine = create_engine(f'postgresql://{_user}:{_password}@{_host}:{_port}/{_database}')
 sessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-#Base.metadata.create_all(engine)
+
+Base.metadata.create_all(engine)
 
 def get_db():
     db = sessionLocal()

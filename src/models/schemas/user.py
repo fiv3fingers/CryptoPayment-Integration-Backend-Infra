@@ -12,8 +12,7 @@ class UserBase(BaseModel):
     settlement_currencies: List[SettlementCurrencySchema]
 
 class UserCreate(UserBase):
-    api_key: SecretStr
-    api_secret: SecretStr
+    pass
 
 class UserUpdate(BaseModel):
     settlement_currencies: Optional[List[SettlementCurrencySchema]] = None
