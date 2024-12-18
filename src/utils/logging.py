@@ -15,7 +15,7 @@ class AppLogger:
         return cls._instance
 
     def _initialize(self):
-        self.log_path = Path("logs")
+        self.log_path = Path("../logs")
         self.log_path.mkdir(exist_ok=True)
         
         # Remove default logger

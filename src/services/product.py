@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Optional, List
 from sqlalchemy import select
 from models.database_models import Product
-from models.schemas.product import ProductCreate, ProductUpdate
+from models.schemas.product import ProductUpdate, ProductBase
 from fastapi import HTTPException
 import logging
 
@@ -12,19 +12,28 @@ from services.base import BaseService
 logger = logging.getLogger(__name__)
 
 class ProductService(BaseService[Product]):
-    async def create(self, user_id: UUID, data: ProductCreate) -> Product:
-        product = Product(
-            user_id=user_id,
-            name=data.name,
-            description=data.description,
-            value_usd=data.value_usd,
-            extra_data=data.extra_data
-        )
-        
-        return await self._handle_db_operation(
-            lambda: self.db.add(product) or product
-        )
+    async def create(self, user_id: UUID, data: List[ProductBase]) -> List[Product]:
+        results = []
+        for product_data in data:
+            print(f"product_data: {product_data}")
+            product = Product(
+                user_id=user_id,
+                name=product_data.name,
+                description=product_data.description,
+                value_usd=product_data.value_usd,
+                extra_data=product_data.extra_data
+            )
+            print(f"product: {product}")
 
+            results.append(
+                await self._handle_db_operation( lambda: self.db.add(product) or product)
+            )
+
+
+        print(f"results: {results}")
+        return results
+
+        
     async def update(self, user_id: UUID, product_id: UUID, data: ProductUpdate) -> Product:
         product = await self.get_by_id(product_id, user_id)
         if not product:

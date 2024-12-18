@@ -33,8 +33,6 @@ class OrderStatus(str, Enum):
     EXPIRED = "expired"
     REFUNDED = "refunded"
 
-
-
 class RoutingServiceType(int, Enum):
     OTHER = 0
     CHANGENOW = 1

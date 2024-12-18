@@ -17,14 +17,13 @@ from services.changenow import ChangeNowClient, EstimateRequest
 from services.base import BaseService
 
 from utils.logging import get_logger
-logger = get_logger("changenow")
+logger = get_logger(__name__)
 
 
 class QuoteService(BaseService):
     def __init__(self, db: Session, changenow_client: ChangeNowClient):
         super().__init__(db)
         self.changenow_client = changenow_client
-
 
 
     async def _currency_to_usd(

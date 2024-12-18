@@ -3,9 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes import user, product, order, quote
 
-
 app = FastAPI()
-
 
 app.add_middleware(
     CORSMiddleware,
