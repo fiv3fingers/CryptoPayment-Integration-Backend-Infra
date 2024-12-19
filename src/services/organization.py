@@ -33,12 +33,25 @@ class OrganizationService(BaseService[Organization]):
             self.db.add(org)
             self.db.commit()
             self.db.refresh(org)
+
+            # Add owner as member
+            member = OrganizationMember(
+                organization_id=org.id,
+                user_id=user_id
+            )
+            self.db.add(member)
+            self.db.commit()
+            self.db.refresh(member)
+
             # Return both org and unhashed secret
             return org, api_secret
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Error creating organization: {str(e)}")
             raise HTTPException(status_code=400, detail="Error creating organization")
+
+
 
     async def update(self, organization_id: UUID, data: OrganizationUpdate) -> Organization:
         """Update an existing organization."""
@@ -76,6 +89,7 @@ class OrganizationService(BaseService[Organization]):
             logger.error(f"Error rotating API key: {str(e)}")
             raise HTTPException(status_code=400, detail="Error rotating API key")
 
+
     async def verify_owner(self, organization_id: UUID, user_id: UUID) -> bool:
         """Verify if the user is the owner of the organization."""
         org =  self.db.query(Organization).get(organization_id)
@@ -89,19 +103,39 @@ class OrganizationService(BaseService[Organization]):
             )
         return True
 
+    async def verify_member(self, organization_id: UUID, user_id: UUID) -> bool:
+        """Verify if the user is a member of the organization."""
+        org =  self.db.query(Organization).get(organization_id)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        
+        member = self.db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == organization_id,
+            OrganizationMember.user_id == user_id
+        ).first()
+        
+        if not member:
+            raise HTTPException(
+                status_code=403, 
+                detail="Only organization members can perform this action"
+            )
+        return True
+
+
+
     async def add_members(
         self, 
         organization_id: UUID, 
         user_id: UUID, 
         member_ids: List[UUID]
     ) -> Tuple[List[UUID], List[UUID]]:
-        """Add members to the organization. Only owner can add members.
+        """Add members to the organization. Only members can add members.
         
         Returns:
             tuple[List[UUID], List[UUID]]: Tuple of (successful_ids, failed_ids)
         """
-        # Verify owner
-        await self.verify_owner(organization_id, user_id)
+        # Verify member
+        await self.verify_member(organization_id, user_id)
         
         successful_ids = []
         failed_ids = []
@@ -157,13 +191,13 @@ class OrganizationService(BaseService[Organization]):
         user_id: UUID,
         member_ids: List[UUID]
     ) -> Tuple[List[UUID], List[UUID]]:
-        """Remove members from the organization. Only owner can remove members.
+        """Remove members from the organization. Only members can remove members.
         
         Returns:
             tuple[List[UUID], List[UUID]]: Tuple of (successful_ids, failed_ids)
         """
-        # Verify owner
-        await self.verify_owner(organization_id, user_id)
+        # Verify member
+        await self.verify_member(organization_id, user_id)
         
         # Cannot remove the owner
         org = self.db.query(Organization).get(organization_id)
@@ -220,6 +254,7 @@ class OrganizationService(BaseService[Organization]):
             OrganizationMember.organization_id == organization_id
         ).all()
 
+    # FIXME: duplicate of is_member
     async def is_member(self, organization_id: UUID, user_id: UUID) -> bool:
         """Check if a user is a member of the organization."""
         org = self.db.query(Organization).get(organization_id)
