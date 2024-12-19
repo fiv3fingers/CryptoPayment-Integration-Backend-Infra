@@ -24,6 +24,24 @@ class TransactionStatus(str, Enum):
     EXPIRED = "expired"
 
 
+class Currency(BaseModel):
+    """Model for currency information"""
+    ticker: str
+    name: str
+    image: str
+    has_external_id: bool = Field(alias="hasExternalId")
+    is_fiat: bool = Field(alias="isFiat")
+    featured: bool
+    is_stable: bool = Field(alias="isStable")
+    supports_fixed_rate: bool = Field(alias="supportsFixedRate")
+    network: str
+    token_contract: Optional[str] = Field(alias="tokenContract")
+    buy: bool
+    sell: bool
+    legacy_ticker: str = Field(alias="legacyTicker")
+    
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class ExchangeEstimate(BaseModel):
     """Response model for exchange estimation endpoint"""

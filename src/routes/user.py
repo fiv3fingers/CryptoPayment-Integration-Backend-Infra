@@ -7,7 +7,6 @@ from database.dependencies import get_db, get_current_user
 from services.user import UserService
 from models.schemas.user import (
     UserCreate,
-    UserUpdate,
     UserResponse,
     UserCredentialsResponse
 )
@@ -24,10 +23,9 @@ async def register_user(
     service = UserService(db)
     user, api_secret = await service.create(data)
     return UserCredentialsResponse(
-        user_id=user.id,
+        id=user.id,
         api_key=user.api_key,
         api_secret=api_secret,
-        settlement_currencies=user.settlement_currencies
     )
 
 @router.get("/me", response_model=UserResponse)
@@ -39,13 +37,13 @@ async def get_current_user_info(
 
 @router.put("/me", response_model=UserResponse)
 async def update_user(
-    data: UserUpdate,
+    name: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update current user settings."""
     service = UserService(db)
-    return await service.update(user.id, data)
+    return await service.update(user.id, name)
 
 @router.post("/me/rotate-key", response_model=UserCredentialsResponse)
 async def rotate_api_key(
@@ -56,10 +54,9 @@ async def rotate_api_key(
     service = UserService(db)
     api_key, api_secret = await service.rotate_api_key(user.id)
     return UserCredentialsResponse(
-        user_id=user.id,
+        id=user.id,
         api_key=api_key,
         api_secret=api_secret,
-        settlement_currencies=user.settlement_currencies
     )
 
 
