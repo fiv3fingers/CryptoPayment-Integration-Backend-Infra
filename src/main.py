@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import user, product, order, quote
+from routes import user, product, order, quote, organization, currency
 
 app = FastAPI()
 
@@ -17,5 +17,7 @@ app.include_router(user.router)
 app.include_router(product.router)
 app.include_router(order.router)
 app.include_router(quote.router)
+app.include_router(organization.router)
+app.include_router(currency.router)
 
 

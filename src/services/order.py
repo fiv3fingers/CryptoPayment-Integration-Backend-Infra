@@ -14,12 +14,12 @@ from services.base import BaseService
 logger = logging.getLogger(__name__)
 
 class OrderService(BaseService[Order]):
-    async def create(self, user_id: UUID, data: OrderCreate) -> OrderResponse:
+    async def create(self, organization_id: UUID, data: OrderCreate) -> OrderResponse:
         expires_at = datetime.now(pytz.UTC) + timedelta(hours=1)
-        logger.info(f"Creating order for user {user_id} with expiration at {expires_at}")
+        logger.info(f"Creating order for organization {organization_id} with expiration at {expires_at}")
         
         order = Order(
-            user_id=user_id,
+            organization_id=organization_id,
             status=OrderStatus.PENDING,
             expires_at=expires_at,
             total_value_usd=0,
@@ -38,10 +38,10 @@ class OrderService(BaseService[Order]):
                     detail=f"Product {item_data.product_id} not found"
                 )
             
-            if product.user_id != user_id:
+            if product.organization_id != organization_id:
                 raise HTTPException(
                     status_code=403,
-                    detail="Product does not belong to user"
+                    detail="Product does not belong to organization"
                 )
             
             total_price = product.value_usd * item_data.quantity
@@ -61,15 +61,15 @@ class OrderService(BaseService[Order]):
             lambda: self.db.add(order) or order
         )
 
-    async def get_by_id(self, order_id: UUID, user_id: UUID) -> Optional[Order]:
+    async def get_by_id(self, order_id: UUID, organization_id: UUID) -> Optional[Order]:
         return self.db.query(Order).filter(
             Order.id == order_id,
-            Order.user_id == user_id
+            Order.organization_id == organization_id
         ).first()
 
-    async def update(self, user_id: UUID, order_id: UUID, data: OrderUpdate) -> Order:
+    async def update(self, organization_id: UUID, order_id: UUID, data: OrderUpdate) -> Order:
         """Update an order with new items and recalculate totals."""
-        order = await self.get_by_id(order_id, user_id)
+        order = await self.get_by_id(order_id, organization_id)
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         
@@ -97,10 +97,10 @@ class OrderService(BaseService[Order]):
                         detail=f"Product {item_data.product_id} not found"
                     )
                 
-                if product.user_id != user_id:
+                if product.organization_id != organization_id:
                     raise HTTPException(
                         status_code=403,
-                        detail="Product does not belong to user"
+                        detail="Product does not belong to organization"
                     )
                 
                 total_price = product.value_usd * item_data.quantity

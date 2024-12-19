@@ -42,7 +42,7 @@ class OrderUpdate(BaseModel):
 
 class OrderResponse(OrderBase, TimestampModel):
     id: UUID4
-    user_id: UUID4
+    organization_id: UUID4
     status: OrderStatus
     expires_at: datetime
     total_value_usd: float = Field(gt=0)

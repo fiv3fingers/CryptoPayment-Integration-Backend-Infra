@@ -9,11 +9,13 @@ import pytz
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from models.schemas.changenow import TransactionType, FlowType, ExchangeEstimate
-from models.schemas.quote import QuoteRequest, QuoteResponse, Currency, CurrencyQuote
-from models.database_models import Order, User, OrderStatus
+from models.schemas.currency import Currency
+from models.schemas.changenow import TransactionType, FlowType, ExchangeEstimate, EstimateRequest
+from models.schemas.quote import QuoteRequest, QuoteResponse, CurrencyQuote
+from models.database_models import Order, Organization, OrderStatus
 
-from services.changenow import ChangeNowClient, EstimateRequest
+from services.currency import CurrencyService
+from services.changenow import ChangeNowClient
 from services.base import BaseService
 
 from utils.logging import get_logger
@@ -21,9 +23,10 @@ logger = get_logger(__name__)
 
 
 class QuoteService(BaseService):
-    def __init__(self, db: Session, changenow_client: ChangeNowClient):
+    def __init__(self, db: Session):
         super().__init__(db)
-        self.changenow_client = changenow_client
+        self.changenow_client = ChangeNowClient.get_instance()
+        self.currency_service = CurrencyService.get_instance()
 
 
     async def _currency_to_usd(
@@ -33,16 +36,16 @@ class QuoteService(BaseService):
     ) -> float:
         # FIXME: Implement this method. Currently hardcoded for USDC
         """ Convert an amount of a given currency to USD."""
-        if currency.token.lower() == "usdc":
+        if currency.ticker.lower() == "usdc":
             return amount
 
-        if currency.chain.lower() == "eth":
-            if currency.token.lower() == "eth":
+        if currency.network.lower() == "eth":
+            if currency.ticker.lower() == "eth":
                 return amount * 4027
-            if currency.token.lower() == "pepe":
+            if currency.ticker.lower() == "pepe":
                 return amount * 0.000024
-        if currency.chain.lower() == "sol":
-            if currency.token.lower() == "sol":
+        if currency.network.lower() == "sol":
+            if currency.ticker.lower() == "sol":
                 return amount * 219.75
         else:
             raise Exception("Unsupported currency")
@@ -72,10 +75,10 @@ class QuoteService(BaseService):
 
 
         request = EstimateRequest(
-            fromCurrency=from_currency.token,
-            toCurrency=to_currency.token,
-            fromNetwork=from_currency.chain,
-            toNetwork=to_currency.chain,
+            fromCurrency=from_currency.ticker,
+            toCurrency=to_currency.ticker,
+            fromNetwork=from_currency.network,
+            toNetwork=to_currency.network,
             toAmount=target_amount,
             type=TransactionType.REVERSE,
             flow=FlowType.FIXED_RATE
@@ -100,22 +103,29 @@ class QuoteService(BaseService):
             raise HTTPException(status_code=400, detail="Order is not in pending state")
 
         # Get merchant's settlement currencies
-        merchant = self.db.query(User).get(order.user_id)
+        merchant = self.db.query(Organization).get(order.organization_id)
 
-        settlement_currencies_and_amounts = [
-            {
-                "currency": Currency(**currency),
-                "goal_amount": await self._usd_to_currency(Currency(**currency), order.total_value_usd)
-            }
-            for currency in merchant.settlement_currencies
-        ]
+        settlement_currencies_and_amounts = []
+        for currency in merchant.settlement_currencies:
+            currency_obj = await self.currency_service.get_by_id(currency)
+            if not currency_obj:
+                logger.error(f"Currency not found: {currency}")
+                continue
+            settlement_currencies_and_amounts.append({
+                "currency": currency_obj,
+                "goal_amount": await self._usd_to_currency(currency_obj, order.total_value_usd)
+            })
 
-        input_currencies_and_prices = [
-            {
-                "currency": currency,
-                "price_usd": await self._currency_to_usd(currency, 1)
-            } for currency in request.currencies
-        ]
+        input_currencies_and_prices = []
+        for currency in request.currencies:
+            currency_obj = await self.currency_service.get_by_id(currency)
+            if not currency_obj:
+                logger.error(f"Currency not found: {currency}")
+                continue
+            input_currencies_and_prices.append({
+                "currency": currency_obj,
+                "price_usd": await self._currency_to_usd(currency_obj, 1)
+            })
 
 
         quotes: List[CurrencyQuote] = []
@@ -134,8 +144,7 @@ class QuoteService(BaseService):
                     continue
 
                 quote = CurrencyQuote(
-                    token=input_currency["currency"].token,
-                    chain=input_currency["currency"].chain,
+                    currency_id=input_currency["currency"].id,
                     price_usd=input_currency["price_usd"],
                     value_usd=amount * input_currency["price_usd"],
                     amount=amount

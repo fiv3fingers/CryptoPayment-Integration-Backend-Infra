@@ -19,6 +19,8 @@ from models.schemas.quote import (
 )
 from models.database_models import User
 
+change_now_client = ChangeNowClient()
+
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
 @router.post("/", response_model=QuoteResponse)
@@ -28,8 +30,7 @@ async def get_quote_for_order(
 ):
     """Get a quote for a specific order"""
 
-    change_now_client = ChangeNowClient()
-    quote_service = QuoteService(db, change_now_client)
+    quote_service = QuoteService(db)
     quotes = await quote_service.get_quotes(request=quote_request)
 
     if not quotes:
