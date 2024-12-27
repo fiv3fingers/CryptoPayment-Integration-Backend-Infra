@@ -21,7 +21,7 @@ class ProductService(BaseService[Product]):
                 name=product_data.name,
                 description=product_data.description,
                 value_usd=product_data.value_usd,
-                metadata=product_data.metadata
+                extra_data=product_data.extra_data
             )
             print(f"product: {product}")
 

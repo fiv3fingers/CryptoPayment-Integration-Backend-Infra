@@ -1,11 +1,13 @@
-from models.schemas.order import OrderType
+from datetime import datetime
+from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, Float, 
-    DateTime, BigInteger, Enum as SQLEnum, Text, func
+    DateTime, BigInteger, Enum as SQLEnum, Index,
+    UniqueConstraint, CheckConstraint, Text, func
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 from enum import Enum
 import uuid
 
@@ -20,8 +22,6 @@ class TimestampMixin:
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
-    FIXED = "fixed" # Payment amounts are fixed
-    SUBMITTED = "submitted"
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
@@ -33,10 +33,6 @@ class OrderStatus(str, Enum):
     FAILED = "failed"
     EXPIRED = "expired"
     REFUNDED = "refunded"
-
-class OrderType(str, Enum):
-    SALE = "sale", # product or item sale
-    CHOOSE_AMOUNT = "choose_amount", # let the user specify the amount to pay, e.g. donation or when depositing into a wallet
 
 class RoutingServiceType(int, Enum):
     OTHER = 0
@@ -120,7 +116,7 @@ class Product(Base, TimestampMixin):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     value_usd = Column(Float, nullable=False)
-    metadata = Column(JSONB, nullable=False, default={})
+    extra_data = Column(JSONB, nullable=False, default={})
     
     # Relationships
     #organization = relationship("Organization", back_populates="products")
@@ -132,12 +128,11 @@ class Order(Base, TimestampMixin):
     __tablename__ = 'orders'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    type = Column(SQLEnum(OrderType), nullable=False)
     organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
     status = Column(SQLEnum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     total_value_usd = Column(Float, nullable=False)
-    metadata = Column(JSONB, nullable=False, default={})
+    extra_data = Column(JSONB, nullable=False, default={})
     
     # Relationships
     order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -188,4 +183,4 @@ class Payment(Base, TimestampMixin):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(SQLEnum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
 
-    metadata = Column(JSONB, nullable=False, default={})
+    extra_data = Column(JSONB, nullable=False, default={})
