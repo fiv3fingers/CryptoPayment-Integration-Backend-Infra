@@ -1,16 +1,10 @@
 # models/schemas/order.py
+from models.database_models import OrderStatus, OrderType
 from .base import TimestampModel
 from pydantic import BaseModel, Field, UUID4
 from typing import List, Dict, Optional
 from datetime import datetime
 from enum import Enum
-
-class OrderStatus(str, Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    EXPIRED = "expired"
-    REFUNDED = "refunded"
 
 class OrderItemBase(BaseModel):
     product_id: UUID4
@@ -31,14 +25,15 @@ class OrderItemResponse(OrderItemBase, TimestampModel):
 
 
 class OrderBase(BaseModel):
-    extra_data: Dict = Field(default_factory=dict)
+    type: OrderType
+    metadata: Dict = Field(default_factory=dict)
 
 class OrderCreate(OrderBase):
     order_items: List[OrderItem]
 
 class OrderUpdate(BaseModel):
     order_items: Optional[List[OrderItem]] = None
-    extra_data: Optional[Dict] = None
+    metadata: Optional[Dict] = None
 
 class OrderResponse(OrderBase, TimestampModel):
     id: UUID4
