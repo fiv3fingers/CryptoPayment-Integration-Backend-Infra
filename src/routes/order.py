@@ -37,7 +37,6 @@ async def update_order(
     return await service.update(org.id, order_id, data)
 
 
-
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: UUID,
