@@ -1,9 +1,23 @@
 # models/schemas/payment.py
-from models.database_models import PaymentStatus, RoutingServiceType
 from .base import TimestampModel
 from pydantic import BaseModel, Field, UUID4
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime
+from enum import Enum
+
+class PaymentStatus(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+    REFUNDED = "refunded"
+
+class RoutingServiceType(int, Enum):
+    OTHER = 0
+    CHANGENOW = 1
+    UNISWAP = 2
+
+
 
 class PaymentBase(BaseModel):
     order_id: UUID4
@@ -31,7 +45,7 @@ class PaymentResponse(PaymentBase, TimestampModel):
     
     expires_at: datetime
     status: PaymentStatus
-    metadata: Dict = Field(default_factory=dict)
+    extra_data: Dict = Field(default_factory=dict)
 
     class Config:
         orm_mode = True
