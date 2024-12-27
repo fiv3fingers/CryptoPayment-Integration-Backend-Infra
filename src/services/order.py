@@ -3,9 +3,9 @@ from uuid import UUID
 from typing import Optional, List
 from datetime import datetime, timedelta
 import pytz
-from sqlalchemy import select
 from models.database_models import Order, OrderItem, Product
-from models.schemas.order import OrderCreate, OrderUpdate, OrderStatus, OrderResponse
+from models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from models.database_models import OrderStatus
 from fastapi import HTTPException
 import logging
 
@@ -17,15 +17,7 @@ class OrderService(BaseService[Order]):
     async def create(self, organization_id: UUID, data: OrderCreate) -> OrderResponse:
         expires_at = datetime.now(pytz.UTC) + timedelta(hours=1)
         logger.info(f"Creating order for organization {organization_id} with expiration at {expires_at}")
-        
-        order = Order(
-            organization_id=organization_id,
-            status=OrderStatus.PENDING,
-            expires_at=expires_at,
-            total_value_usd=0,
-            extra_data=data.extra_data
-        )
-        
+               
         total_value = 0
         order_items = []
         
@@ -54,8 +46,14 @@ class OrderService(BaseService[Order]):
             total_value += total_price
             order_items.append(order_item)
         
-        order.total_value_usd = total_value
-        order.order_items = order_items
+        order = Order(
+            organization_id=organization_id,
+            type=data.type,
+            expires_at=expires_at,
+            metadata=data.metadata,
+            total_value_usd=total_value,
+            order_items=order_items
+        )
         
         return await self._handle_db_operation(
             lambda: self.db.add(order) or order
@@ -76,8 +74,8 @@ class OrderService(BaseService[Order]):
         if order.status != OrderStatus.PENDING:
             raise HTTPException(status_code=400, detail="Order is not in pending state")
 
-        if data.extra_data is not None:
-            order.extra_data = data.extra_data
+        if data.metadata is not None:
+            order.metadata = data.metadata
 
         if data.items is not None:
             # Remove existing items
