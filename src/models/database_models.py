@@ -45,6 +45,7 @@ class User(Base, TimestampMixin):
     api_key = Column(String(64), nullable=False, unique=True, index=True)
     api_secret = Column(String(128), nullable=False)
 
+
     # Relationships
     #organizations = relationship("Organization", back_populates="owner", cascade="all, delete-orphan")
     #memberships = relationship("OrganizationMember", back_populates="user", cascade="all, delete-orphan")

@@ -4,7 +4,7 @@ from models.schemas.currency import Currency
 from services.changenow import ChangeNowClient
 from utils.logging import get_logger
 
-logger = get_logger("currency_service")
+logger = get_logger(__name__)
 
 class CurrencyService:
     _instance = None
