@@ -1,12 +1,9 @@
 from typing import Optional, List, Dict, Tuple
-from pydantic import BaseModel, Field, ConfigDict
 import json
 import os
 import requests
 from datetime import datetime, timedelta
 from models.schemas.changenow import (
-    TransactionType,
-    FlowType,
     ExchangeEstimate,
     ExchangeTransaction,
     CreateExchangeRequest,
@@ -15,10 +12,9 @@ from models.schemas.changenow import (
     Currency
 )
 
-from models.schemas.currency import Currency as CurrencyModel
 from utils.logging import get_logger
 
-logger = get_logger("changenow")
+logger = get_logger(__name__)
 
 class ChangeNowAPIError(Exception):
     """Custom exception for ChangeNow API errors"""
