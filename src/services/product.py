@@ -1,7 +1,6 @@
 # services/product.py
 from uuid import UUID
 from typing import Optional, List
-from sqlalchemy import select
 from models.database_models import Product
 from models.schemas.product import ProductUpdate, ProductBase
 from fastapi import HTTPException
@@ -15,22 +14,18 @@ class ProductService(BaseService[Product]):
     async def create(self, organization_id: UUID, data: List[ProductBase]) -> List[Product]:
         results = []
         for product_data in data:
-            print(f"product_data: {product_data}")
             product = Product(
                 organization_id=organization_id,
                 name=product_data.name,
                 description=product_data.description,
                 value_usd=product_data.value_usd,
-                extra_data=product_data.extra_data
+                metadata_=product_data.metadata
             )
-            print(f"product: {product}")
 
             results.append(
                 await self._handle_db_operation( lambda: self.db.add(product) or product)
             )
 
-
-        print(f"results: {results}")
         return results
 
         
@@ -39,7 +34,7 @@ class ProductService(BaseService[Product]):
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        update_data = data.model_dump(exclude_unset=True)
+        update_data = data.to_orm_dict(exclude_unset=True)
         for field, value in update_data.items():
             setattr(product, field, value)
 
