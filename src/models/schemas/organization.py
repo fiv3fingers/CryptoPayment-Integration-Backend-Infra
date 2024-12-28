@@ -37,8 +37,5 @@ class OrganizationMemberResponse(TimestampModel):
     organization_id: UUID4
     user_id: UUID4
 
-    class Config:
-        orm_mode = True
-
 class OrganizationFullResponse(OrganizationCreateResponse):
     members: List[OrganizationMemberResponse] = []

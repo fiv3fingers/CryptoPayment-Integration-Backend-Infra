@@ -23,7 +23,8 @@ async def create_products(
     """Create a new product for the authenticated organization."""
     service = ProductService(db)
     products = await service.create(org.id, data)
-    return products
+
+    return [Product.from_orm(product) for product in products]
 
 
 @router.put("/{product_id}", response_model=Product)
@@ -35,7 +36,9 @@ async def update_product(
 ):
     """Update an existing product."""
     service = ProductService(db)
-    return await service.update(org.id, product_id, data)
+    product = await service.update(org.id, product_id, data)
+
+    return Product.from_orm(product)
 
 @router.get("/{product_id}", response_model=Product)
 async def get_product(
@@ -48,7 +51,8 @@ async def get_product(
     product = await service.get_by_id(product_id, org.id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+
+    return Product.from_orm(product)
 
 @router.get("/", response_model=List[Product])
 async def list_products(
@@ -57,9 +61,11 @@ async def list_products(
 ):
     """List all products for the authenticated organization."""
     service = ProductService(db)
-    return await service.list_by_organization(
-        org.id,
+    orm_r = await service.list_by_organization(
+        org.id
     )
+
+    return [Product.from_orm(product) for product in orm_r]
 
 @router.delete("/{product_id}")
 async def delete_product(
