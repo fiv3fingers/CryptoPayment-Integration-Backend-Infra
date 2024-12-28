@@ -1,6 +1,6 @@
 # models/schemas/payment.py
 from models.database_models import PaymentStatus, RoutingServiceType
-from .base import TimestampModel
+from .base import TimestampModel, MetadataModel
 from pydantic import BaseModel, Field, UUID4
 from typing import Optional, Dict
 from datetime import datetime
@@ -13,7 +13,7 @@ class PaymentBase(BaseModel):
 class PaymentCreate(PaymentBase):
     pass
 
-class PaymentResponse(PaymentBase, TimestampModel):
+class PaymentResponse(PaymentBase, MetadataModel, TimestampModel):
     id: UUID4
     order_id: UUID4
     in_value_usd: float = Field(gt=0)
@@ -32,7 +32,4 @@ class PaymentResponse(PaymentBase, TimestampModel):
     expires_at: datetime
     status: PaymentStatus
     metadata: Dict = Field(default_factory=dict)
-
-    class Config:
-        orm_mode = True
 

@@ -50,7 +50,7 @@ class OrderService(BaseService[Order]):
             organization_id=organization_id,
             type=data.type,
             expires_at=expires_at,
-            metadata=data.metadata,
+            metadata_=data.metadata,
             total_value_usd=total_value,
             order_items=order_items
         )
@@ -75,7 +75,7 @@ class OrderService(BaseService[Order]):
             raise HTTPException(status_code=400, detail="Order is not in pending state")
 
         if data.metadata is not None:
-            order.metadata = data.metadata
+            order.metadata_ = data.metadata
 
         if data.items is not None:
             # Remove existing items

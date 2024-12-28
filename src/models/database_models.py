@@ -1,4 +1,4 @@
-from models.schemas.order import OrderType
+from models.enums import OrderType, OrderStatus, PaymentStatus, RoutingServiceType
 from sqlalchemy import (
     Column, Integer, String, ForeignKey, Float, 
     DateTime, BigInteger, Enum as SQLEnum, Text, func
@@ -6,7 +6,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from enum import Enum
 import uuid
 
 
@@ -17,32 +16,6 @@ class TimestampMixin:
     """Mixin for adding timestamp fields to models"""
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-class PaymentStatus(str, Enum):
-    PENDING = "pending"
-    FIXED = "fixed" # Payment amounts are fixed
-    SUBMITTED = "submitted"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    EXPIRED = "expired"
-    REFUNDED = "refunded"
-
-class OrderStatus(str, Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    EXPIRED = "expired"
-    REFUNDED = "refunded"
-
-class OrderType(str, Enum):
-    SALE = "sale", # product or item sale
-    CHOOSE_AMOUNT = "choose_amount", # let the user specify the amount to pay, e.g. donation or when depositing into a wallet
-
-class RoutingServiceType(int, Enum):
-    OTHER = 0
-    CHANGENOW = 1
-    UNISWAP = 2
-
 
 class SettlementCurrency:
     """Class representing a settlement currency"""
@@ -120,7 +93,8 @@ class Product(Base, TimestampMixin):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     value_usd = Column(Float, nullable=False)
-    metadata = Column(JSONB, nullable=False, default={})
+    metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
+
     
     # Relationships
     #organization = relationship("Organization", back_populates="products")
@@ -137,7 +111,7 @@ class Order(Base, TimestampMixin):
     status = Column(SQLEnum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     total_value_usd = Column(Float, nullable=False)
-    metadata = Column(JSONB, nullable=False, default={})
+    metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
     
     # Relationships
     order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -188,4 +162,4 @@ class Payment(Base, TimestampMixin):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(SQLEnum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
 
-    metadata = Column(JSONB, nullable=False, default={})
+    metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")

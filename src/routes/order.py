@@ -2,7 +2,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import List
 from database.dependencies import get_db, get_current_organization
 from services.order import OrderService
 from models.schemas.order import (
@@ -22,7 +21,9 @@ async def create_order(
 ):
     """Create a new order."""
     service = OrderService(db)
-    return await service.create(org.id, data)
+    r_orm = await service.create(org.id, data)
+
+    return OrderResponse.from_orm(r_orm)
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
@@ -34,7 +35,8 @@ async def update_order(
 ):
     """Update an existing order."""
     service = OrderService(db)
-    return await service.update(org.id, order_id, data)
+    r_orm = await service.update(org.id, order_id, data)
+    return OrderResponse.from_orm(r_orm)
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -48,6 +50,7 @@ async def get_order(
     order = await service.get_by_id(order_id, org.id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return order
+
+    return OrderResponse.from_orm(order)
 
 
