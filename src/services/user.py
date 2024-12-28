@@ -78,5 +78,3 @@ class UserService(BaseService[User]):
             self.db.rollback()
             logger.error(f"Error rotating API key: {str(e)}")
             raise HTTPException(status_code=400, detail="Error rotating API key")
-
-
