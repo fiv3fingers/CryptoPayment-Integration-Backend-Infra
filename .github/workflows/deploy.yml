@@ -59,4 +59,7 @@ jobs:
             -e POSTGRES_PORT=${{ secrets.DB_PORT }} \
             -e POSTGRES_DB=${{ secrets.DB_NAME }} \
             -e CHANGENOW_API_KEY=${{ secrets.CHANGENOW_API_KEY }} \
+            -e ALCHEMY_API_KEY=${{ secrets.ALCHEMY_API_KEY }} \
+            -e SOLANA_RPC_URL=${{ secrets.SOLANA_RPC_URL }} \
+            -e SUI_RPC_URL=${{ secrets.SUI_RPC_URL }} \
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
