@@ -25,4 +25,3 @@ class RoutingServiceType(int, Enum):
     CHANGENOW = 1
     UNISWAP = 2
 
-

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from routes import user, product, order, quote, organization, currency
+from routes import user, product, order, quote, organization, currency, blockchain
 
 from config import GZIP_MINIMUM_SIZE
 
@@ -24,3 +24,4 @@ app.include_router(order.router)
 app.include_router(quote.router)
 app.include_router(organization.router)
 app.include_router(currency.router)
+app.include_router(blockchain.router)
