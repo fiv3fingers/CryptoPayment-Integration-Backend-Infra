@@ -52,7 +52,7 @@ jobs:
           docker rm coin-voyage-api || true
           docker run -d \
             --name coin-voyage-api \
-            -p 80:8000 \
+            -p 8000:8000 \
             -e POSTGRES_USER=${{ secrets.DB_USER }} \
             -e POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
             -e POSTGRES_HOST=${{ secrets.DB_HOST }} \

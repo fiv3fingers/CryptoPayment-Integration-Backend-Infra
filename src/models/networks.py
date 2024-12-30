@@ -65,6 +65,21 @@ class Chain(Enum):
         ),
         logo="https://cryptologos.cc/logos/solana-sol-logo.png"
     )
+    SUI = ChainClass(
+        id="SUI",
+        name="Sui",
+        shortName="sui",
+        type=ChainType.SUI,
+        chainId=None,
+        nativeCurrency=NativeCurrency(
+            name="SUI",
+            symbol="SUI",
+            decimals=9
+        ),
+        logo="https://cryptologos.cc/logos/sui-sui-logo.png"
+    )
+
+
 
     @classmethod
     def get_by_name(cls, name: str) -> Optional[ChainClass]:
