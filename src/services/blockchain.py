@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict
 from models.schemas.blockchain import TokenBalance, Token
-from models.networks import Chain, ChainType, ChainClass
+from models.networks import ChainId, ChainType, ChainClass, get_by_chain_id
 from utils import evm, solana
 from utils.logging import get_logger
 import requests
@@ -26,6 +26,7 @@ class BlockchainService:
     def __init__(self):
         """Initialize Blockchain service (only runs once)"""
         if not BlockchainService._initialized:
+            # Does this cache have an expiration time + clean up? Else we blow up the memory.
             self._token_cache: Dict[str, Dict[str, List[TokenBalance]]] = {}  # wallet -> chain -> tokens
             logger.debug("Blockchain service initialized")
             BlockchainService._initialized = True
@@ -35,7 +36,7 @@ class BlockchainService:
     async def get_wallet_tokens(
         self,
         address: str,
-        chain_id: str,
+        chain_id: ChainId,
         use_cache: bool = True
     ) -> List[TokenBalance]:
         """
@@ -50,7 +51,7 @@ class BlockchainService:
             List of TokenBalance objects
         """
         try:
-            chain = Chain.get_by_id(chain_id)
+            chain = get_by_chain_id(chain_id)
             if chain is None:
                 raise BlockchainServiceError(f"Chain not found: {chain_id}")
 
@@ -67,6 +68,10 @@ class BlockchainService:
             
             if chain.type == ChainType.EVM:
                 _tokens = evm.get_token_balances(address, chain.shortName)
+                # TODO: filter empty balances 
+                # TODO: filter tokens with no value (spam tokens etc).
+
+                # This is way to slow, we either need a service that allow searching in bulk, or parallelize this.
                 for token in _tokens:
                     metadata = evm.get_token_metadata(token.contractAddress, chain.shortName)
 
