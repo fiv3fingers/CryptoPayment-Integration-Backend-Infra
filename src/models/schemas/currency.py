@@ -40,3 +40,7 @@ class Currency(BaseModel):
             id=_id,
             network_name=network_name
         )
+
+class Balance(BaseModel):
+    currency: Currency
+    amount: float

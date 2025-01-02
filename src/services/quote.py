@@ -18,6 +18,8 @@ from services.currency import CurrencyService
 from services.changenow import ChangeNowClient
 from services.base import BaseService
 
+from utils import evm
+
 from utils.logging import get_logger
 logger = get_logger(__name__)
 
@@ -116,26 +118,31 @@ class QuoteService(BaseService):
                 "goal_amount": await self._usd_to_currency(currency_obj, order.total_value_usd)
             })
 
-        input_currencies_and_prices = []
-        for currency in request.currencies:
-            currency_obj = await self.currency_service.get_by_id(currency)
-            if not currency_obj:
-                logger.error(f"Currency not found: {currency}")
-                continue
-            input_currencies_and_prices.append({
-                "currency": currency_obj,
-                "price_usd": await self._currency_to_usd(currency_obj, 1)
-            })
+
+        # Get user's input currencies
+        all_currencies = self.currency_service.get_currencies(networks=[request.chain_name])
+        token_balances = evm.get_token_balances(request.user_address, request.chain_name)
+        relevant_cas = [t.contractAddress.lower() for t in token_balances if t.tokenBalance > 0]
+        user_currencies = [c for c in all_currencies if not c.is_native and c.token_contract.lower() in relevant_cas]
+
+        native_balance = evm.get_native_balance(request.user_address, request.chain_name)
+        if native_balance > 0:
+            native_currency = next((c for c in all_currencies if c.network == request.chain_name and c.is_native), None)
+            if native_currency:
+                print(native_currency)
+                user_currencies.append(native_currency)
+
+
 
 
         quotes: List[CurrencyQuote] = []
 
-        for input_currency in input_currencies_and_prices:
+        for input_currency in user_currencies:
             quotes_for_different_settlement_currencies = []
             for settlement_currency in settlement_currencies_and_amounts:
                 try:
                     amount = await self._get_estimate(
-                        input_currency["currency"],
+                        input_currency,
                         settlement_currency["currency"],
                         settlement_currency["goal_amount"]
                     )
@@ -144,13 +151,11 @@ class QuoteService(BaseService):
                     continue
 
                 quote = CurrencyQuote(
-                    currency_id=input_currency["currency"].id,
-                    price_usd=input_currency["price_usd"],
-                    value_usd=amount * input_currency["price_usd"],
+                    currency=input_currency,
                     amount=amount
                 )
                 quotes_for_different_settlement_currencies.append(quote)
-            best_quote = min(quotes_for_different_settlement_currencies, key=lambda x: x.value_usd)
+            best_quote = min(quotes_for_different_settlement_currencies, key=lambda x: x.amount)
             quotes.append(best_quote)
 
         return QuoteResponse(
