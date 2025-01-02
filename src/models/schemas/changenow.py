@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator
 from enum import Enum
 from datetime import datetime
 
+
 class FlowType(str, Enum):
     STANDARD = "standard"
     FIXED_RATE = "fixed-rate"
@@ -162,7 +163,6 @@ class CreateExchangeRequest(ExchangeRequestBase):
         populate_by_name=True,
         use_enum_values=True,
         extra='ignore',
-        
     )
 
 class ExchangeStatusResponse(BaseModel):

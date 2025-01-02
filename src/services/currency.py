@@ -4,6 +4,8 @@ from models.schemas.currency import Currency
 from services.changenow import ChangeNowClient
 from utils.logging import get_logger
 
+from utils import evm
+
 logger = get_logger(__name__)
 
 class CurrencyService:
@@ -128,3 +130,32 @@ class CurrencyService:
         cls._instance = None
         cls._initialized = False
         logger.debug("Currency service instance reset")
+
+
+
+
+    def get_user_currencies(self, wallet_address: str, chain_name: str) -> List[Currency]:
+        """
+        Get list of currencies available to a user based on their wallet address
+        
+        Args:
+            wallet_address: str - User's wallet address
+            chain_id: str - Chain ID to query
+            
+        Returns:
+            List[Currency]: List of currencies available to the user
+        """
+        # Get all available currencies
+        supported_currencies = self.get_currencies(use_cache=True, networks=[chain_name], is_native=False)
+
+        print("Supported currencies: ", supported_currencies)
+        
+        # Get user's tokens on the specified chain
+        user_token_balances = evm.get_token_balances(wallet_address, chain_name)
+        user_native_balance = evm.get_native_balance(wallet_address, chain_name)
+
+        contract_addresses = [t.contractAddress.lower() for t in user_token_balances if t.tokenBalance > 0]
+        relevant_currencies = [c for c in supported_currencies if c.token_contract.lower() in contract_addresses]
+
+        return relevant_currencies
+
