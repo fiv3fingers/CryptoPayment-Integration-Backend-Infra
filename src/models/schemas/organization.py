@@ -12,9 +12,9 @@ class OrganizationCreate(OrganizationBase):
     pass
 
 class OrganizationCreateResponse(OrganizationBase, TimestampModel):
-    id: UUID4
+    id: str
     api_key: str
-    owner_id: UUID4
+    owner_id: str
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -33,9 +33,9 @@ class MemberOperationResponse(BaseModel):
     message: str
 
 class OrganizationMemberResponse(TimestampModel):
-    id: UUID4
-    organization_id: UUID4
-    user_id: UUID4
+    id: str
+    organization_id: str
+    user_id: str
 
 class OrganizationFullResponse(OrganizationCreateResponse):
     members: List[OrganizationMemberResponse] = []

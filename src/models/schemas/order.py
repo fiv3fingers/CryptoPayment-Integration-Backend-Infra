@@ -6,15 +6,15 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 class OrderItemBase(BaseModel):
-    product_id: UUID4
+    product_id: str
     quantity: int = Field(gt=0)
 
 class OrderItem(OrderItemBase):
     pass
 
 class OrderItemResponse(OrderItemBase, TimestampModel):
-    id: UUID4
-    order_id: UUID4
+    id: str
+    order_id: str
     unit_price_usd: float = Field(gt=0)
     total_price_usd: float = Field(gt=0)
 
@@ -31,11 +31,12 @@ class OrderUpdate(OrderBase):
     order_items: Optional[List[OrderItem]] = None
 
 class OrderResponse(OrderBase, TimestampModel):
-    id: UUID4
-    organization_id: UUID4
+    id: str
+    organization_id: str
     status: OrderStatus
     expires_at: datetime
     total_value_usd: float = Field(gt=0)
     order_items: List[OrderItemResponse]
+
 
 

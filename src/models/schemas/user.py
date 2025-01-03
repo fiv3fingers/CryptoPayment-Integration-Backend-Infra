@@ -3,19 +3,21 @@ from pydantic import BaseModel, Field, UUID4, SecretStr
 from typing import List, Dict, Optional
 from uuid import UUID
 
-class UserBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     pass
 
-class UserResponse(UserBase, TimestampModel):
-    id: UUID4
-    api_key: str #SecretStr
-    api_secret: str #SecretStr
+class UserResponse(TimestampModel):
+    id: str
+    name: str
+    email: Optional[str]
+    email_verified: Optional[str]
+    image: Optional[str]
+    wallet_address: Optional[str]
+
 
 class UserCredentialsResponse(BaseModel):
     """Response model for API credentials."""
-    id: UUID
+    id: str
     api_key: str #SecretStr
     api_secret: str #SecretStr
