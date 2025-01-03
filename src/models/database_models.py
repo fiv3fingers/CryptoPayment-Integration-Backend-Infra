@@ -3,10 +3,10 @@ from sqlalchemy import (
     Column, Integer, String, ForeignKey, Float, 
     DateTime, BigInteger, Enum as SQLEnum, Text, func
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-import uuid
+from cuid2 import cuid2 
 
 
 Base = declarative_base()
@@ -38,77 +38,57 @@ class SettlementCurrency:
 
 class User(Base, TimestampMixin):
     """ User model representing users of the system """
-    __tablename__ = 'users'
+    __tablename__ = 'User'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    api_key = Column(String(64), nullable=False, unique=True, index=True)
-    api_secret = Column(String(128), nullable=False)
-
+    id = Column(String, primary_key=True, default=cuid2)
+    name = Column(String(255), nullable=True)
+    email = Column(String, nullable=True, unique=True)
+    wallet_address = Column(String(255), nullable=True)
 
     # Relationships
-    #organizations = relationship("Organization", back_populates="owner", cascade="all, delete-orphan")
-    #memberships = relationship("OrganizationMember", back_populates="user", cascade="all, delete-orphan")
+    #owner_of_organization = relationship("Organization", back_populates="owner", cascade="all, delete-orphan")
+    #members_of_organization = relationship("OrganizationMember", back_populates="user", cascade="all, delete-orphan")
 
 
 class Organization(Base, TimestampMixin):
     """Organization model representing merchants using the payment system"""
-    __tablename__ = 'organizations'
+    __tablename__ = 'Organization'
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=cuid2)
     name = Column(String(255), nullable=False)
+    
     api_key = Column(String(64), nullable=False, unique=True, index=True)
     api_secret = Column(String(128), nullable=False)
 
-    owner_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    owner_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
     settlement_currencies = Column(JSONB, nullable=False)
 
-
     # Relationships
-    #owner = relationship("User", back_populates="organizations")
-    #members = relationship("OrganizationMember", back_populates="organization", cascade="all, delete-orphan")
+    #owner = relationship("User", back_populates="owner_of_organization")
+    #members = relationship("OrganizationMember", back_populates="members_of_organization", cascade="all, delete-orphan")
     #products = relationship("Product", back_populates="organization", cascade="all, delete-orphan")
 
 
 class OrganizationMember(Base, TimestampMixin):
     """Organization member model representing users within an organization"""
-    __tablename__ = 'organization_members'
+    __tablename__ = 'OrganizationMember'
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
     
     # Relationships
-    #organization = relationship("Organization", back_populates="members")
+    organization = relationship("Organization", back_populates="members")
     #user = relationship("User", back_populates="organizations")
-    
-
-class Product(Base, TimestampMixin):
-    """Product model representing items that can be purchased"""
-    __tablename__ = 'products'
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # the organization the product belongs to
-    organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
-
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    value_usd = Column(Float, nullable=False)
-    metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
-
-    
-    # Relationships
-    #organization = relationship("Organization", back_populates="products")
-    order_items = relationship("OrderItem", back_populates="product", cascade="all, delete-orphan")
     
 
 class Order(Base, TimestampMixin):
     """Order model representing a collection of products being purchased"""
-    __tablename__ = 'orders'
+    __tablename__ = 'Order'
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, default=cuid2)
     type = Column(SQLEnum(OrderType), nullable=False)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)    
     status = Column(SQLEnum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     total_value_usd = Column(Float, nullable=False)
@@ -120,11 +100,11 @@ class Order(Base, TimestampMixin):
 
 class OrderItem(Base, TimestampMixin):
     """Order item model representing individual products in an order"""
-    __tablename__ = 'order_items'
+    __tablename__ = 'OrderItem'
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    order_id = Column(UUID(as_uuid=True), ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
-    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    order_id = Column(String, ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
+    product_id = Column(String, ForeignKey('Product.id'), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price_usd = Column(Float, nullable=False)
     total_price_usd = Column(Float, nullable=False)
@@ -136,11 +116,11 @@ class OrderItem(Base, TimestampMixin):
 
 class Payment(Base, TimestampMixin):
     """Payment model representing cryptocurrency payments"""
-    __tablename__ = 'payments'
+    __tablename__ = 'Payment'
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    order_id = Column(UUID(as_uuid=True), ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    order_id = Column(String, ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
     
     # Input payment details
     in_value_usd = Column(Float, nullable=False)
@@ -164,3 +144,23 @@ class Payment(Base, TimestampMixin):
     status = Column(SQLEnum(PaymentStatus), nullable=False, default=PaymentStatus.PENDING)
 
     metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
+
+
+class Product(Base, TimestampMixin):
+    """Product model representing items that can be purchased"""
+    __tablename__ = 'Product'
+    
+    id = Column(String, primary_key=True, default=cuid2)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+
+    # the organization the product belongs to
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+    
+    value_usd = Column(Float, nullable=False)
+    metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
+
+    # Relationships
+    #organization = relationship("Organization", back_populates="product")
+    order_items = relationship("OrderItem", back_populates="product", cascade="all, delete-orphan")
+    
