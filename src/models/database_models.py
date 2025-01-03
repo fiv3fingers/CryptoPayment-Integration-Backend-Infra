@@ -3,10 +3,10 @@ from sqlalchemy import (
     Column, Integer, String, ForeignKey, Float, 
     DateTime, BigInteger, Enum as SQLEnum, Text, func
 )
-from sqlalchemy.dialects.postgresql import JSONB, CUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-import cuid
+from cuid2 import cuid2 
 
 
 Base = declarative_base()
@@ -40,7 +40,7 @@ class User(Base, TimestampMixin):
     """ User model representing users of the system """
     __tablename__ = 'User'
 
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
+    id = Column(String, primary_key=True, default=cuid2)
     name = Column(String(255), nullable=True)
     email = Column(String, nullable=True, unique=True)
     wallet_address = Column(String(255), nullable=True)
@@ -54,13 +54,13 @@ class Organization(Base, TimestampMixin):
     """Organization model representing merchants using the payment system"""
     __tablename__ = 'Organization'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
+    id = Column(String, primary_key=True, default=cuid2)
     name = Column(String(255), nullable=False)
     
     api_key = Column(String(64), nullable=False, unique=True, index=True)
     api_secret = Column(String(128), nullable=False)
 
-    owner_id = Column(CUID(as_cuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    owner_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
     settlement_currencies = Column(JSONB, nullable=False)
 
     # Relationships
@@ -73,9 +73,9 @@ class OrganizationMember(Base, TimestampMixin):
     """Organization member model representing users within an organization"""
     __tablename__ = 'OrganizationMember'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
-    organization_id = Column(CUID(as_cuid=True), ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(CUID(as_cuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
     
     # Relationships
     organization = relationship("Organization", back_populates="members")
@@ -86,9 +86,9 @@ class Order(Base, TimestampMixin):
     """Order model representing a collection of products being purchased"""
     __tablename__ = 'Order'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
+    id = Column(String, primary_key=True, default=cuid2)
     type = Column(SQLEnum(OrderType), nullable=False)
-    organization_id = Column(CUID(as_cuid=True), ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)    
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)    
     status = Column(SQLEnum(OrderStatus), nullable=False, default=OrderStatus.PENDING)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     total_value_usd = Column(Float, nullable=False)
@@ -102,9 +102,9 @@ class OrderItem(Base, TimestampMixin):
     """Order item model representing individual products in an order"""
     __tablename__ = 'OrderItem'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
-    order_id = Column(CUID(as_cuid=True), ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
-    product_id = Column(CUID(as_cuid=True), ForeignKey('Product.id'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    order_id = Column(String, ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
+    product_id = Column(String, ForeignKey('Product.id'), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price_usd = Column(Float, nullable=False)
     total_price_usd = Column(Float, nullable=False)
@@ -118,9 +118,9 @@ class Payment(Base, TimestampMixin):
     """Payment model representing cryptocurrency payments"""
     __tablename__ = 'Payment'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
-    order_id = Column(CUID(as_cuid=True), ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
-    organization_id = Column(CUID(as_cuid=True), ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+    id = Column(String, primary_key=True, default=cuid2)
+    order_id = Column(String, ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
     
     # Input payment details
     in_value_usd = Column(Float, nullable=False)
@@ -150,12 +150,12 @@ class Product(Base, TimestampMixin):
     """Product model representing items that can be purchased"""
     __tablename__ = 'Product'
     
-    id = Column(CUID(as_cuid=True), primary_key=True, default=cuid.cuid)
+    id = Column(String, primary_key=True, default=cuid2)
     name = Column(String(255), nullable=False)
     description = Column(Text)
 
     # the organization the product belongs to
-    organization_id = Column(CUID(as_cuid=True), ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+    organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
     
     value_usd = Column(Float, nullable=False)
     metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
