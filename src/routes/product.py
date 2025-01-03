@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List
-from database.dependencies import get_db, get_current_organization, get_current_user
+from database.dependencies import get_db, get_current_organization
 from services.product import ProductService
 from models.schemas.product import (
     Product,

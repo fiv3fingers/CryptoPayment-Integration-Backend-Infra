@@ -11,7 +11,7 @@ class ProductBase(MetadataModel):
     metadata: Dict = Field(default_factory=dict)
 
 class Product(ProductBase):
-    id: UUID4
+    id: str
 
 
 class ProductUpdate(ProductBase):

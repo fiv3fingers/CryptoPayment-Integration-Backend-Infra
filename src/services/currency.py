@@ -117,6 +117,20 @@ class CurrencyService:
         currencies = self.get_currencies(use_cache=True)
         return next((c for c in currencies if c.id == currency_id), None)
 
+    async def get_by_ca(self, contract_address: str, chain_name: str) -> Optional[Currency]:
+        """
+        Get currency by contract address
+        
+        Args:
+            contract_address: str - Token contract address to look up
+            
+        Returns:
+            Optional[Currency]: Currency object if found, None otherwise
+        """
+        currencies = self.get_currencies(use_cache=True, networks=[chain_name], is_native=False)
+        return next((c for c in currencies if c.token_contract.lower() == contract_address.lower()), None)
+
+
     @classmethod
     def get_instance(cls) -> 'CurrencyService':
         """Get or create the singleton instance"""

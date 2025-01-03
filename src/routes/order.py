@@ -1,7 +1,6 @@
 # routes/order.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from uuid import UUID
 from database.dependencies import get_db, get_current_organization
 from services.order import OrderService
 from models.schemas.order import (
@@ -11,7 +10,20 @@ from models.schemas.order import (
 )
 from models.database_models import Organization
 
+from services.quote import QuoteService
+from models.schemas.quote import (
+    QuoteRequest,
+    QuoteResponse,
+)
+
+from services.payment import PaymentService
+from models.schemas.payment import (
+    PaymentCreate,
+    PaymentResponse,
+)
+
 router = APIRouter(prefix="/orders", tags=["orders"])
+
 
 @router.post("/", response_model=OrderResponse)
 async def create_order(
@@ -28,7 +40,7 @@ async def create_order(
 
 @router.put("/{order_id}", response_model=OrderResponse)
 async def update_order(
-    order_id: UUID,
+    order_id: str,
     data: OrderUpdate,
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
@@ -39,10 +51,9 @@ async def update_order(
     return OrderResponse.from_orm(r_orm)
 
 
-
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
-    order_id: UUID,
+    order_id: str,
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
 ):
@@ -54,4 +65,40 @@ async def get_order(
 
     return OrderResponse.from_orm(order)
 
+
+@router.post("/{order_id}/quote", response_model=QuoteResponse)
+async def get_quote_for_order(
+    order_id: str,
+    quote_request: QuoteRequest,
+    db: Session = Depends(get_db)
+):
+    """Get a quote for a specific order"""
+    quote_service = QuoteService(db)
+    quotes = await quote_service.get_quotes(
+        order_id=order_id,
+        chain_name=quote_request.chain_name,
+        wallet_address=quote_request.user_address
+    )
+
+    if not quotes:
+        raise HTTPException(status_code=404, detail="Quotes not found")
+
+    return quotes
+
+
+@router.post("/{order_id}/pay", response_model=PaymentResponse)
+async def pay_order(
+    order_id: str,
+    payment_request: PaymentCreate,
+    db: Session = Depends(get_db)
+):
+    """Pay for an order."""
+    payment_service = PaymentService(db)
+    payment = await payment_service.create_payment(
+        order_id=order_id,
+        currency_id=payment_request.currency_id,
+        refund_address=payment_request.refund_address
+    )
+
+    return PaymentResponse.from_orm(payment)
 

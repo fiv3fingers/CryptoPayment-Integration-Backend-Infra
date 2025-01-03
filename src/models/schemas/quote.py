@@ -13,13 +13,12 @@ class CurrencyQuote(BaseModel):
 
 
 class QuoteRequest(BaseModel):
-    order_id: UUID4
     user_address: str
     chain_name: str
 
 
 class QuoteResponse(BaseModel):
-    order_id: UUID4
+    order_id: str
     timestamp: datetime
     quotes: List[CurrencyQuote]
 

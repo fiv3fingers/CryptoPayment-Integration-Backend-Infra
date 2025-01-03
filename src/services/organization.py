@@ -1,4 +1,3 @@
-from uuid import UUID
 from typing import Optional, List, Tuple
 from sqlalchemy import select
 from models.database_models import Organization, OrganizationMember, User
@@ -16,7 +15,7 @@ from services.base import BaseService
 logger = logging.getLogger(__name__)
 
 class OrganizationService(BaseService[Organization]):
-    async def create(self, user_id: UUID, data: OrganizationCreate) -> tuple[Organization, str]:
+    async def create(self, user_id: Cuid, data: OrganizationCreate) -> tuple[Organization, str]:
         """Create a new organization with API credentials."""
         # Generate API credentials
         api_key, api_secret = generate_api_credentials()
@@ -33,7 +32,7 @@ class OrganizationService(BaseService[Organization]):
             self.db.add(org)
             self.db.commit()
             self.db.refresh(org)
-
+            
             # Add owner as member
             member = OrganizationMember(
                 organization_id=org.id,
@@ -53,7 +52,7 @@ class OrganizationService(BaseService[Organization]):
 
 
 
-    async def update(self, organization_id: UUID, data: OrganizationUpdate) -> Organization:
+    async def update(self, organization_id: Cuid, data: OrganizationUpdate) -> Organization:
         """Update an existing organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -70,7 +69,7 @@ class OrganizationService(BaseService[Organization]):
             logger.error(f"Error updating organization: {str(e)}")
             raise HTTPException(status_code=400, detail="Error updating organization")
 
-    async def rotate_api_key(self, organization_id: UUID) -> tuple[str, str]:
+    async def rotate_api_key(self, organization_id: Cuid) -> tuple[str, str]:
         """Generate new API credentials for organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -90,7 +89,7 @@ class OrganizationService(BaseService[Organization]):
             raise HTTPException(status_code=400, detail="Error rotating API key")
 
 
-    async def verify_owner(self, organization_id: UUID, user_id: UUID) -> bool:
+    async def verify_owner(self, organization_id: Cuid, user_id: Cuid) -> bool:
         """Verify if the user is the owner of the organization."""
         org =  self.db.query(Organization).get(organization_id)
         if not org:
@@ -103,7 +102,7 @@ class OrganizationService(BaseService[Organization]):
             )
         return True
 
-    async def verify_member(self, organization_id: UUID, user_id: UUID) -> bool:
+    async def verify_member(self, organization_id: Cuid, user_id: Cuid) -> bool:
         """Verify if the user is a member of the organization."""
         org =  self.db.query(Organization).get(organization_id)
         if not org:
@@ -125,14 +124,14 @@ class OrganizationService(BaseService[Organization]):
 
     async def add_members(
         self, 
-        organization_id: UUID, 
-        user_id: UUID, 
-        member_ids: List[UUID]
-    ) -> Tuple[List[UUID], List[UUID]]:
+        organization_id: Cuid, 
+        user_id: Cuid, 
+        member_ids: List[Cuid]
+    ) -> Tuple[List[Cuid], List[Cuid]]:
         """Add members to the organization. Only members can add members.
         
         Returns:
-            tuple[List[UUID], List[UUID]]: Tuple of (successful_ids, failed_ids)
+            tuple[List[Cuid], List[Cuid]]: Tuple of (successful_ids, failed_ids)
         """
         # Verify member
         await self.verify_member(organization_id, user_id)
@@ -187,14 +186,14 @@ class OrganizationService(BaseService[Organization]):
 
     async def remove_members(
         self,
-        organization_id: UUID,
-        user_id: UUID,
-        member_ids: List[UUID]
-    ) -> Tuple[List[UUID], List[UUID]]:
+        organization_id: Cuid,
+        user_id: Cuid,
+        member_ids: List[Cuid]
+    ) -> Tuple[List[Cuid], List[Cuid]]:
         """Remove members from the organization. Only members can remove members.
         
         Returns:
-            tuple[List[UUID], List[UUID]]: Tuple of (successful_ids, failed_ids)
+            tuple[List[Cuid], List[Cuid]]: Tuple of (successful_ids, failed_ids)
         """
         # Verify member
         await self.verify_member(organization_id, user_id)
@@ -244,7 +243,7 @@ class OrganizationService(BaseService[Organization]):
         
         return successful_ids, failed_ids
 
-    async def get_members(self, organization_id: UUID) -> List[OrganizationMember]:
+    async def get_members(self, organization_id: Cuid) -> List[OrganizationMember]:
         """Get all members of an organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -255,7 +254,7 @@ class OrganizationService(BaseService[Organization]):
         ).all()
 
     # FIXME: duplicate of is_member
-    async def is_member(self, organization_id: UUID, user_id: UUID) -> bool:
+    async def is_member(self, organization_id: Cuid, user_id: Cuid) -> bool:
         """Check if a user is a member of the organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -272,6 +271,6 @@ class OrganizationService(BaseService[Organization]):
         
         return member is not None
 
-    async def get_by_id(self, organization_id: UUID) -> Optional[Organization]:
+    async def get_by_id(self, organization_id: Cuid) -> Optional[Organization]:
         return self.db.query(Organization).get(organization_id)
 

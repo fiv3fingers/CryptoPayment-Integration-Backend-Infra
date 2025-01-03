@@ -38,12 +38,18 @@ class QuoteService(BaseService):
     ) -> float:
         # FIXME: Implement this method. Currently hardcoded for USDC
         """ Convert an amount of a given currency to USD."""
-        if currency.ticker.lower() == "usdc":
+
+
+        if currency.network.lower() == "btc" and currency.ticker.lower() == "btc":
+            return amount * 95000
+
+
+        if currency.ticker.lower() == "usdc" or currency.ticker.lower() == "usdt" or currency.ticker.lower() == "dai":
             return amount
 
         if currency.network.lower() == "eth":
             if currency.ticker.lower() == "eth":
-                return amount * 4027
+                return amount * 3500
             if currency.ticker.lower() == "pepe":
                 return amount * 0.000024
         if currency.network.lower() == "sol":
@@ -51,7 +57,6 @@ class QuoteService(BaseService):
                 return amount * 219.75
         else:
             raise Exception("Unsupported currency")
-            
 
 
     async def _usd_to_currency(
@@ -91,11 +96,11 @@ class QuoteService(BaseService):
         return response.from_amount
 
 
-    async def get_quotes(self, request: QuoteRequest) -> QuoteResponse:
+    async def get_quotes(self, order_id: str, chain_name: str, wallet_address: str) -> QuoteResponse:
         """Get quotes for converting from input currencies to merchant settlement currencies."""
         # Validate order exists and belongs to merchant
-        order = self.db.query(Order).filter(
-            Order.id == request.order_id,
+        order: Order = self.db.query(Order).filter(
+            Order.id == order_id,
         ).first()
         
         if not order:
@@ -109,7 +114,7 @@ class QuoteService(BaseService):
 
         settlement_currencies_and_amounts = []
         for currency in merchant.settlement_currencies:
-            currency_obj = await self.currency_service.get_by_id(currency)
+            currency_obj = await self.currency_service.get_by_ca(currency["token"].lower(), currency["chain"].lower())
             if not currency_obj:
                 logger.error(f"Currency not found: {currency}")
                 continue
@@ -120,19 +125,17 @@ class QuoteService(BaseService):
 
 
         # Get user's input currencies
-        all_currencies = self.currency_service.get_currencies(networks=[request.chain_name])
-        token_balances = evm.get_token_balances(request.user_address, request.chain_name)
+        all_currencies = self.currency_service.get_currencies(networks=[chain_name])
+        token_balances = evm.get_token_balances(wallet_address, chain_name)
         relevant_cas = [t.contractAddress.lower() for t in token_balances if t.tokenBalance > 0]
         user_currencies = [c for c in all_currencies if not c.is_native and c.token_contract.lower() in relevant_cas]
 
-        native_balance = evm.get_native_balance(request.user_address, request.chain_name)
+        native_balance = evm.get_native_balance(wallet_address, chain_name)
         if native_balance > 0:
-            native_currency = next((c for c in all_currencies if c.network == request.chain_name and c.is_native), None)
+            native_currency = next((c for c in all_currencies if c.network == chain_name and c.is_native), None)
             if native_currency:
                 print(native_currency)
                 user_currencies.append(native_currency)
-
-
 
 
         quotes: List[CurrencyQuote] = []
