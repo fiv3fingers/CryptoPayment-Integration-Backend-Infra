@@ -6,7 +6,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from cuid2 import cuid2 
+from cuid2 import Cuid as cuid2 
+
 
 
 Base = declarative_base()
