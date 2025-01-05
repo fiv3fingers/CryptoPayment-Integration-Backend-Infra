@@ -1,26 +1,24 @@
 # routes/order.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database.dependencies import get_db, get_current_organization
-from services.order import OrderService
-from models.schemas.order import (
+from ..database.dependencies import get_db, get_current_organization
+from ..services.order import OrderService
+from ..models.schemas.order import (
     OrderCreate,
     OrderUpdate,
     OrderResponse,
 )
-from models.database_models import Organization
+from ..models.database_models import Organization
 
-from services.quote import QuoteService
-from models.schemas.quote import (
+from ..services.quote import QuoteService
+from ..models.schemas.quote import (
     QuoteRequest,
     QuoteResponse,
 )
 
-from services.payment import PaymentService
-from models.schemas.payment import (
-    PaymentCreate,
-    PaymentResponse,
-)
+from ..utils.blockchain.blockchain import get_wallet_currencies
+import datetime
+
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -70,35 +68,32 @@ async def get_order(
 async def get_quote_for_order(
     order_id: str,
     quote_request: QuoteRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    org: Organization = Depends(get_current_organization)
 ):
     """Get a quote for a specific order"""
-    quote_service = QuoteService(db)
-    quotes = await quote_service.get_quotes(
-        order_id=order_id,
-        chain_name=quote_request.chain_name,
-        wallet_address=quote_request.user_address
+
+    # retrieve the order
+    order_service = OrderService(db)
+    order = await order_service.get_by_id(order_id, org.id)
+    settlement_currency_ids = await order_service.get_settlement_currency_ids(order_id)
+    user_currencies = get_wallet_currencies(quote_request.address, quote_request.chain_id)
+
+    quote_service = QuoteService()
+    quotes = await quote_service._get_quote(
+        value_usd=order.total_value_usd,
+        from_currencies=user_currencies,
+        to_currencies=settlement_currency_ids
     )
 
     if not quotes:
         raise HTTPException(status_code=404, detail="Quotes not found")
 
-    return quotes
 
-
-@router.post("/{order_id}/pay", response_model=PaymentResponse)
-async def pay_order(
-    order_id: str,
-    payment_request: PaymentCreate,
-    db: Session = Depends(get_db)
-):
-    """Pay for an order."""
-    payment_service = PaymentService(db)
-    payment = await payment_service.create_payment(
+    return QuoteResponse(
         order_id=order_id,
-        currency_id=payment_request.currency_id,
-        refund_address=payment_request.refund_address
+        timestamp=datetime.datetime.now(),
+        quotes=quotes
     )
 
-    return PaymentResponse.from_orm(payment)
 

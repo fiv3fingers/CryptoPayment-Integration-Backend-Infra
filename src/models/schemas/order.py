@@ -1,5 +1,5 @@
 # models/schemas/order.py
-from models.enums import OrderStatus, OrderType
+from ..enums import OrderStatus, OrderType
 from .base import TimestampModel, MetadataModel
 from pydantic import BaseModel, Field, UUID4
 from typing import List, Dict, Optional

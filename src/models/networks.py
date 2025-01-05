@@ -12,7 +12,6 @@ class ChainType(str, Enum):
     # Unspent transaction output (e.g. Bitcoin, Litecoin, Dogecoin)
     UTXO = "UTXO",
 
-# Can we add
 class ChainId(int, Enum):
     ETH = 1
     OPTIMISM = 10
@@ -53,8 +52,6 @@ class ChainClass(BaseModel):
     chainId: Optional[int]
     nativeCurrency: NativeCurrency
     logo: str
-
-# SUPPORTED CHAINS
 
 # I feel this should be a mapping not an enum
 CHAIN_DATA_MAP = {
