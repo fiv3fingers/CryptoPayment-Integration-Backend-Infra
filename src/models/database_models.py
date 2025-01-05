@@ -1,6 +1,6 @@
-from models.enums import OrderType, OrderStatus, PaymentStatus, RoutingServiceType
+from .enums import OrderType, OrderStatus, PaymentStatus, RoutingServiceType
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, Float, 
+    ARRAY, Column, Integer, String, ForeignKey, Float, 
     DateTime, BigInteger, Enum as SQLEnum, Text, func
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -9,6 +9,7 @@ from sqlalchemy.orm import relationship
 import cuid2
 import uuid
 
+from ..utils.currencies.types import CurrencyBase
 
 Base = declarative_base()
 
@@ -17,25 +18,6 @@ class TimestampMixin:
     """Mixin for adding timestamp fields to models"""
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-class SettlementCurrency:
-    """Class representing a settlement currency"""
-    def __init__(self, token: str, chain: str, address: str):
-        self.token = token
-        self.chain = chain
-        self.address = address
-
-    def to_dict(self):
-        return {
-            'token': self.token,
-            'chain': self.chain,
-            'address': self.address
-        }
-
-    @staticmethod
-    def from_dict(data: dict):
-        return SettlementCurrency(data['token'], data['chain'], data['address'])
-
 
 class User(Base, TimestampMixin):
     """User model representing users of the system"""
@@ -97,7 +79,7 @@ class Organization(Base, TimestampMixin):
     api_key = Column(String(64), nullable=False, unique=True, index=True)
 
     owner_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    settlement_currencies = Column(JSONB, nullable=False)
+    settlement_currencies = Column(ARRAY(String), nullable=False)   # list of currency ids
 
     # Relationships
     owner = relationship("User", back_populates="owned_organizations")

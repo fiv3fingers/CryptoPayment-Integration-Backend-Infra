@@ -3,18 +3,20 @@ from pydantic import BaseModel, UUID4
 from typing import List
 from datetime import datetime
 
-from models.schemas.currency import Currency
+from ...utils.types import ChainId
 
+from ...utils.currencies.types import Currency
 
 
 class CurrencyQuote(BaseModel):
     currency: Currency
     amount: float
+    value_usd: float
 
 
 class QuoteRequest(BaseModel):
-    user_address: str
-    chain_name: str
+    address: str        # wallet address of the user
+    chain_id: ChainId
 
 
 class QuoteResponse(BaseModel):

@@ -1,20 +1,19 @@
 # services/order.py
-from uuid import UUID
 from typing import Optional, List
 from datetime import datetime, timedelta
 import pytz
-from models.database_models import Order, OrderItem, Product
-from models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
-from models.database_models import OrderStatus
+from ..models.database_models import Order, OrderItem, Product, Organization
+from ..models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from ..models.database_models import OrderStatus
 from fastapi import HTTPException
 import logging
 
-from services.base import BaseService
+from .base import BaseService
 
 logger = logging.getLogger(__name__)
 
 class OrderService(BaseService[Order]):
-    async def create(self, organization_id: UUID, data: OrderCreate) -> OrderResponse:
+    async def create(self, organization_id: str, data: OrderCreate) -> OrderResponse:
         expires_at = datetime.now(pytz.UTC) + timedelta(hours=1)
         logger.info(f"Creating order for organization {organization_id} with expiration at {expires_at}")
                
@@ -59,13 +58,13 @@ class OrderService(BaseService[Order]):
             lambda: self.db.add(order) or order
         )
 
-    async def get_by_id(self, order_id: UUID, organization_id: UUID) -> Optional[Order]:
+    async def get_by_id(self, order_id: str, organization_id: str) -> Optional[Order]:
         return self.db.query(Order).filter(
             Order.id == order_id,
             Order.organization_id == organization_id
         ).first()
 
-    async def update(self, organization_id: UUID, order_id: UUID, data: OrderUpdate) -> Order:
+    async def update(self, organization_id: str, order_id: str, data: OrderUpdate) -> Order:
         """Update an order with new items and recalculate totals."""
         order = await self.get_by_id(order_id, organization_id)
         if not order:
@@ -115,3 +114,19 @@ class OrderService(BaseService[Order]):
             order.order_items = new_items
 
         return await self._handle_db_operation(lambda: order)
+
+
+    async def get_settlement_currency_ids(self, order_id: str) -> List[str]:
+        """Get the list of settlement currencies for an order."""
+        order = self.db.query(Order).get(order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        organization = self.db.query(Organization).get(order.organization_id)
+        if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        settlement_currencies = organization.settlement_currencies
+
+        return settlement_currencies
+
