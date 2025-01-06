@@ -1,8 +1,7 @@
-from typing import Dict, Optional, List, Union, NamedTuple
+from typing import Dict, Optional, List 
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
-from ..currencies.types import CurrencyBase, Currency
 
 class VSCurrency(str, Enum):
     """Supported vs currencies"""

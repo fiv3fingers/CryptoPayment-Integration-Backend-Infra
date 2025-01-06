@@ -2,13 +2,15 @@
 from typing import Optional, List
 from datetime import datetime, timedelta
 import pytz
-from ..models.database_models import Order, OrderItem, Product, Organization
-from ..models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
-from ..models.database_models import OrderStatus
+from src.models.database_models import Order, OrderItem, Product, Organization, SettlementCurrency
+from src.models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from src.models.database_models import OrderStatus
 from fastapi import HTTPException
 import logging
 
 from .base import BaseService
+
+from src.services.organization import OrganizationService
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +118,7 @@ class OrderService(BaseService[Order]):
         return await self._handle_db_operation(lambda: order)
 
 
-    async def get_settlement_currency_ids(self, order_id: str) -> List[str]:
+    async def get_settlement_currencies(self, order_id: str) -> List[SettlementCurrency]:
         """Get the list of settlement currencies for an order."""
         order = self.db.query(Order).get(order_id)
         if not order:
@@ -126,7 +128,8 @@ class OrderService(BaseService[Order]):
         if not organization:
             raise HTTPException(status_code=404, detail="Organization not found")
 
-        settlement_currencies = organization.settlement_currencies
+        return await OrganizationService(self.db).get_settlement_currencies(organization.id)
 
-        return settlement_currencies
+
+
 

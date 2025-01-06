@@ -1,22 +1,26 @@
 # routes/order.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..database.dependencies import get_db, get_current_organization
-from ..services.order import OrderService
-from ..models.schemas.order import (
+
+from src.models.schemas.payment import PaymentResponse
+from src.database.dependencies import get_db, get_current_organization
+from src.services.order import OrderService
+from src.models.schemas.order import (
     OrderCreate,
     OrderUpdate,
     OrderResponse,
 )
-from ..models.database_models import Organization
+from src.models.database_models import Organization
 
-from ..services.quote import QuoteService
-from ..models.schemas.quote import (
+from src.services.quote import QuoteService
+from src.models.schemas.quote import (
     QuoteRequest,
     QuoteResponse,
 )
 
-from ..utils.blockchain.blockchain import get_wallet_currencies
+from src.services.payment import PaymentService
+
+from src.utils.blockchain.blockchain import get_wallet_currencies
 import datetime
 
 
@@ -76,7 +80,8 @@ async def get_quote_for_order(
     # retrieve the order
     order_service = OrderService(db)
     order = await order_service.get_by_id(order_id, org.id)
-    settlement_currency_ids = await order_service.get_settlement_currency_ids(order_id)
+    settlement_currencies = await order_service.get_settlement_currencies(order_id)
+    settlement_currency_ids = [currency.currency_id for currency in settlement_currencies]
     user_currencies = get_wallet_currencies(quote_request.address, quote_request.chain_id)
 
     quote_service = QuoteService()
@@ -96,4 +101,16 @@ async def get_quote_for_order(
         quotes=quotes
     )
 
+@router.post("/{order_id}/pay", response_model=PaymentResponse)
+async def create_payment(
+    order_id: str,
+    curency_id: str,
+    refund_address: str,
+    db: Session = Depends(get_db),
+):
+    """Create a payment for a specific order"""
+
+    payment_service = PaymentService(db)
+    payment = await payment_service.create(order_id, curency_id, refund_address)
+    return payment
 

@@ -1,13 +1,9 @@
 # services/user.py
 from uuid import UUID
-from typing import Optional
-from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from models.database_models import User
 from models.schemas.user import UserCreate 
 from utils.common import generate_api_credentials, hash_secret
-import secrets
-import hashlib
 import logging
 
 

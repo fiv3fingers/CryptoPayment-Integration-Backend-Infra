@@ -6,9 +6,9 @@ from aiocache import Cache, cached
 from aiocache.serializers import PickleSerializer
 from fastapi import Depends
 
-from ..utils.types import ChainId, ServiceType
-from ..utils.currencies.types import Currency, CurrencyBase
-from ..utils.changenow.types import (
+from src.utils.types import ChainId, ServiceType
+from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.changenow.types import (
     ChangeNowCurrency,
     EstimateRequest,
     Estimate,

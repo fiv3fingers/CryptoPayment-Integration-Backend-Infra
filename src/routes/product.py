@@ -10,7 +10,7 @@ from models.schemas.product import (
     ProductBase,
     ProductUpdate,
 )
-from models.database_models import Organization, User
+from src.models.database_models import Organization, User
 
 router = APIRouter(prefix="/products", tags=["products"])
 

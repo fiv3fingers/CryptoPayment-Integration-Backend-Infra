@@ -1,9 +1,8 @@
 # utils/chains/types.py
-from typing import Optional, Dict, TypedDict
+from typing import Optional, Dict
 from pydantic import BaseModel
-from enum import Enum
 
-from ..types import ChainType, ServiceType, ChainId
+from src.utils.types import ChainType, ServiceType, ChainId
 
 
 class AliasModel(BaseModel):

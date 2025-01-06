@@ -2,13 +2,14 @@
 from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Optional, Union
 
-from ..types import ChainId
+from src.utils.types import ChainId
 
-from ..chains.types import Chain, ChainType, NativeCurrency
-from ..chains.queries import get_chain_by_id, get_chain_by_name, get_all_chains, get_chains_by_type
-
+from src.utils.chains.types import Chain 
+from src.utils.chains.queries import get_chain_by_id
 
 SEPARATOR_SYMBOL: str = "-"
+
+
 
 class CurrencyBase(BaseModel):
 
