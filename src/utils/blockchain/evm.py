@@ -1,14 +1,13 @@
 import os
-from dataclasses import dataclass
-from typing import List, Optional, NamedTuple
+from typing import List
 import requests
 
-from ..types import ChainId
+from src.utils.types import ChainId
 
-from ..currencies.types import Currency, CurrencyBase
-from ..logging import get_logger
-from ..chains.types import Chain, ServiceType
-from ..chains.queries import get_chain_by_id
+from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.logging import get_logger
+from src.utils.chains.types import Chain, ServiceType
+from src.utils.chains.queries import get_chain_by_id
 
 from .types import Balance
 

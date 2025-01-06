@@ -1,12 +1,12 @@
 import os
 from dataclasses import dataclass
-from typing import List, Optional
 import requests
+from typing import List
 
-from ..logging import get_logger
+from src.utils.logging import get_logger
 
-from ..currencies.types import CurrencyBase, Currency
-from ..chains.types import ChainId
+from src.utils.currencies.types import CurrencyBase 
+from src.utils.chains.types import ChainId
 from .types import Balance
 
 logger = get_logger(__name__)

@@ -1,12 +1,8 @@
 # utils/common.py
-from uuid import UUID
-from typing import Optional
-from fastapi import HTTPException
 import secrets
 import hashlib
 import logging
 
-from services.base import BaseService
 
 logger = logging.getLogger(__name__)
 

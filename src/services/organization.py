@@ -1,21 +1,25 @@
 from typing import Optional, List, Tuple
 from sqlalchemy import select
-from models.database_models import Organization, OrganizationMember, User
-from models.schemas.organization import (
+from src.models.database_models import Organization, OrganizationMember, SettlementCurrency, User
+from src.models.schemas.organization import (
     OrganizationBase, 
     OrganizationCreate,
     OrganizationCreateResponse,
     OrganizationUpdate
 )
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 import logging
-from utils.common import generate_api_credentials, hash_secret
-from services.base import BaseService
+from src.database.database import get_db
+from src.utils.common import generate_api_credentials, hash_secret
+from src.services.base import BaseService
+
+from src.models import database_models
+
 
 logger = logging.getLogger(__name__)
 
 class OrganizationService(BaseService[Organization]):
-    async def create(self, user_id: Cuid, data: OrganizationCreate) -> tuple[Organization, str]:
+    async def create(self, user_id: str, data: OrganizationCreate) -> tuple[Organization, str]:
         """Create a new organization with API credentials."""
         # Generate API credentials
         api_key, api_secret = generate_api_credentials()
@@ -52,7 +56,7 @@ class OrganizationService(BaseService[Organization]):
 
 
 
-    async def update(self, organization_id: Cuid, data: OrganizationUpdate) -> Organization:
+    async def update(self, organization_id: str, data: OrganizationUpdate) -> Organization:
         """Update an existing organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -69,7 +73,7 @@ class OrganizationService(BaseService[Organization]):
             logger.error(f"Error updating organization: {str(e)}")
             raise HTTPException(status_code=400, detail="Error updating organization")
 
-    async def rotate_api_key(self, organization_id: Cuid) -> tuple[str, str]:
+    async def rotate_api_key(self, organization_id: str) -> tuple[str, str]:
         """Generate new API credentials for organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -89,7 +93,7 @@ class OrganizationService(BaseService[Organization]):
             raise HTTPException(status_code=400, detail="Error rotating API key")
 
 
-    async def verify_owner(self, organization_id: Cuid, user_id: Cuid) -> bool:
+    async def verify_owner(self, organization_id: str, user_id: str) -> bool:
         """Verify if the user is the owner of the organization."""
         org =  self.db.query(Organization).get(organization_id)
         if not org:
@@ -102,7 +106,7 @@ class OrganizationService(BaseService[Organization]):
             )
         return True
 
-    async def verify_member(self, organization_id: Cuid, user_id: Cuid) -> bool:
+    async def verify_member(self, organization_id: str, user_id: str) -> bool:
         """Verify if the user is a member of the organization."""
         org =  self.db.query(Organization).get(organization_id)
         if not org:
@@ -124,14 +128,14 @@ class OrganizationService(BaseService[Organization]):
 
     async def add_members(
         self, 
-        organization_id: Cuid, 
-        user_id: Cuid, 
-        member_ids: List[Cuid]
-    ) -> Tuple[List[Cuid], List[Cuid]]:
+        organization_id: str, 
+        user_id: str, 
+        member_ids: List[str]
+    ) -> Tuple[List[str], List[str]]:
         """Add members to the organization. Only members can add members.
         
         Returns:
-            tuple[List[Cuid], List[Cuid]]: Tuple of (successful_ids, failed_ids)
+            tuple[List[str], List[str]]: Tuple of (successful_ids, failed_ids)
         """
         # Verify member
         await self.verify_member(organization_id, user_id)
@@ -186,14 +190,14 @@ class OrganizationService(BaseService[Organization]):
 
     async def remove_members(
         self,
-        organization_id: Cuid,
-        user_id: Cuid,
-        member_ids: List[Cuid]
-    ) -> Tuple[List[Cuid], List[Cuid]]:
+        organization_id: str,
+        user_id: str,
+        member_ids: List[str]
+    ) -> Tuple[List[str], List[str]]:
         """Remove members from the organization. Only members can remove members.
         
         Returns:
-            tuple[List[Cuid], List[Cuid]]: Tuple of (successful_ids, failed_ids)
+            tuple[List[str], List[str]]: Tuple of (successful_ids, failed_ids)
         """
         # Verify member
         await self.verify_member(organization_id, user_id)
@@ -243,7 +247,7 @@ class OrganizationService(BaseService[Organization]):
         
         return successful_ids, failed_ids
 
-    async def get_members(self, organization_id: Cuid) -> List[OrganizationMember]:
+    async def get_members(self, organization_id: str) -> List[OrganizationMember]:
         """Get all members of an organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -254,7 +258,7 @@ class OrganizationService(BaseService[Organization]):
         ).all()
 
     # FIXME: duplicate of is_member
-    async def is_member(self, organization_id: Cuid, user_id: Cuid) -> bool:
+    async def is_member(self, organization_id: str, user_id: str) -> bool:
         """Check if a user is a member of the organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
@@ -271,6 +275,21 @@ class OrganizationService(BaseService[Organization]):
         
         return member is not None
 
-    async def get_by_id(self, organization_id: Cuid) -> Optional[Organization]:
+    async def get_by_id(self, organization_id: str) -> Optional[Organization]:
         return self.db.query(Organization).get(organization_id)
+
+    async def get_settlement_currencies(self, organization_id: str) -> List[SettlementCurrency]:
+        """Get settlement currencies for the organization."""
+        org = self.db.query(Organization).get(organization_id)
+        if not org:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        settlement_currencies = [
+            SettlementCurrency.from_dict(currency) for currency in org.settlement_currencies
+        ]
+        
+        return settlement_currencies
+        
+
+
 

@@ -9,9 +9,9 @@ from fastapi import Depends
 from aiocache import Cache, cached
 from aiocache.serializers import PickleSerializer
 
-from ..utils.types import ServiceType, ChainId
-from ..utils.currencies.types import Currency, CurrencyBase
-from ..utils.coingecko.types import Price, VSCurrency, PriceParams, TokenInfo
+from src.utils.types import ServiceType, ChainId
+from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.coingecko.types import Price, VSCurrency, PriceParams, TokenInfo
 
 from tenacity import (
     retry,
@@ -105,6 +105,8 @@ class CoinGeckoService:
             async with self.session.get(url) as response:
                 if response.status == 429:
                     raise RateLimitError("Rate limit reached")
+                elif response.status == 404:
+                    return None
                 elif response.status >= 400:
                     raise CoinGeckoError(f"API error: {response.status}")
                     

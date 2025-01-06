@@ -1,3 +1,4 @@
+from typing import NamedTuple
 from .enums import OrderType, OrderStatus, PaymentStatus, RoutingServiceType
 from sqlalchemy import (
     ARRAY, Column, Integer, String, ForeignKey, Float, 
@@ -7,11 +8,28 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import cuid2
-import uuid
 
-from ..utils.currencies.types import CurrencyBase
+from src.utils.currencies.types import CurrencyBase
 
 Base = declarative_base()
+
+class SettlementCurrency(NamedTuple):
+    currency_id: str
+    address: str
+
+    def to_dict(self):
+        return {
+            "currency_id": self.currency_id,
+            "address": self.address
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            currency_id=data["currency_id"],
+            address=data["address"]
+        )
+
 
 
 class TimestampMixin:
@@ -79,7 +97,7 @@ class Organization(Base, TimestampMixin):
     api_key = Column(String(64), nullable=False, unique=True, index=True)
 
     owner_id = Column(String, ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    settlement_currencies = Column(ARRAY(String), nullable=False)   # list of currency ids
+    settlement_currencies = Column(ARRAY(JSONB), nullable=False)   # list of currency ids
 
     # Relationships
     owner = relationship("User", back_populates="owned_organizations")
@@ -139,19 +157,19 @@ class Payment(Base, TimestampMixin):
     id = Column(String, primary_key=True, default=cuid2.cuid_wrapper())
     order_id = Column(String, ForeignKey('Order.id', ondelete='CASCADE'), nullable=False)
     organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
+
+    refund_address = Column(String, nullable=False)
     
     # Input payment details
     in_value_usd = Column(Float, nullable=False)
-    in_amount = Column(String, nullable=False)  # Store as string to preserve precision
-    in_token = Column(String, nullable=False)
-    in_chain = Column(String, nullable=False)
+    in_amount = Column(Float, nullable=False) 
+    in_currency = Column(String, nullable=False)
     in_address = Column(String, nullable=False)
     
     # Output payment details
     out_value_usd = Column(Float, nullable=False)
-    out_amount = Column(BigInteger, nullable=False)  # Store as string to preserve precision
-    out_token = Column(String, nullable=False)
-    out_chain = Column(String, nullable=False)
+    out_amount = Column(Float, nullable=False)
+    out_currency = Column(String, nullable=False)
     out_address = Column(String, nullable=False)
     
     # External service details

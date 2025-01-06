@@ -4,6 +4,8 @@ from typing import List, Dict, Optional
 from uuid import UUID
 from datetime import datetime
 
+
+
 class OrganizationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     settlement_currencies: List[str]

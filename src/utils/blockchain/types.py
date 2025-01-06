@@ -1,5 +1,5 @@
 from typing import NamedTuple
-from ..currencies.types import CurrencyBase
+from src.utils.currencies.types import CurrencyBase
 
 class Balance(NamedTuple):
     currency: CurrencyBase

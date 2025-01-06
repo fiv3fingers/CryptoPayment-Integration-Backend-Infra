@@ -1,5 +1,5 @@
 from .types import Chain, ServiceType, NativeCurrency
-from ..types import ChainId, ChainType
+from src.utils.types import ChainId, ChainType
 from .data import CHAIN_DATA_MAP
 
 

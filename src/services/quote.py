@@ -1,13 +1,13 @@
 from typing import List, Union
 
-from ..utils.types import ChainId
-from ..utils.currencies.types import Currency, CurrencyBase
-from ..utils.logging import get_logger
+from src.utils.types import ChainId
+from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.logging import get_logger
 
 from .changenow import ChangeNowService, ExchangeType
 from .coingecko import CoinGeckoService
 
-from ..models.schemas.quote import CurrencyQuote
+from src.models.schemas.quote import CurrencyQuote
 
 
 logger = get_logger(__name__)
@@ -25,6 +25,14 @@ class QuoteService():
             from_currencies = [CurrencyBase.from_id(id_) for id_ in from_currencies]
         if type(to_currencies[0]) == str:
             to_currencies = [CurrencyBase.from_id(id_) for id_ in to_currencies]
+
+        print("FROM CURRENCIES")
+        for c in from_currencies:
+            print(c)
+
+        print("\nTO CURRENCIES")
+        for c in to_currencies:
+            print(c)
 
         async with CoinGeckoService() as cg:
             from_currencies = await cg.price(currencies=from_currencies)
@@ -52,7 +60,8 @@ class QuoteService():
                     best_quote = CurrencyQuote(
                         currency=best_quote["from_currency"],
                         amount=best_quote["amount_in"],
-                        value_usd=best_quote["value_usd_in"]
+                        value_usd=best_quote["value_usd_in"],
+                        currency_out=best_quote["to_currency"]
                     )
                     quotes.append(best_quote)
 

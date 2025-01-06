@@ -15,7 +15,6 @@ from eth_utils.crypto import keccak
 
 from abis import TOKEN_MESSENGER_ABI, USDC_ABI, MESSAGE_TRANSMITTER_ABI
 
-import asyncio
 
 ATTESTATION_BASE_URL = 'https://iris-api-sandbox.circle.com/attestations/'
 

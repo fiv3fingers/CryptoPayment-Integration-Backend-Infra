@@ -1,6 +1,6 @@
 # utils/chains/data.py
 from .types import Chain, ServiceType, NativeCurrency
-from ..types import ChainId, ChainType
+from src.utils.types import ChainId, ChainType
 
 CHAIN_DATA_MAP = {
     ChainId.ETH: Chain(

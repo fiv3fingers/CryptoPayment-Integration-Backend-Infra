@@ -2,8 +2,8 @@
 from typing import Dict, Optional, List, Union
 import requests
 
-from ..types import ServiceType
-from ..currencies.types import Currency, CurrencyBase
+from src.utils.types import ServiceType
+from src.utils.currencies.types import Currency, CurrencyBase
 from .types import Price, VSCurrency, PriceParams, TokenInfo
 
 class CoinGeckoAPI:
