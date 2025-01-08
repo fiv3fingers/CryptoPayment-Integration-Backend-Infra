@@ -1,16 +1,13 @@
 # services/payment.py
-from typing import Optional, List
 from datetime import datetime, timedelta
 import pytz
 
 from src.models.enums import RoutingServiceType
 from src.models.schemas.payment import PaymentResponse
-from src.models.database_models import Order, OrderItem, Payment, Product, Organization, SettlementCurrency
-from src.models.schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from src.models.database_models import Order, Payment, Organization, SettlementCurrency
 from src.models.database_models import OrderStatus
 
 from .changenow import ChangeNowService
-from .coingecko import CoinGeckoService
 from .quote import QuoteService
 
 from fastapi import HTTPException
@@ -44,10 +41,6 @@ class PaymentService(BaseService[Payment]):
 
         settlement_currencies = [SettlementCurrency.from_dict(c) for c in org.settlement_currencies]
 
-        print("-- Settlement Currencies --")
-        for c in settlement_currencies:
-            print(c)
-        print("")
 
         # Get quote
         quote_service = QuoteService()
@@ -59,21 +52,7 @@ class PaymentService(BaseService[Payment]):
 
         quote = min(quotes, key=lambda x: x.value_usd)
 
-        print("-- Quote --")
-        print(quote)
-        print("")
-
-
-
         settlement_currency = next(c for c in settlement_currencies if c.currency_id == quote.currency_out.id)
-
-        print("-- Exchange params --")
-        print(f"Address: {settlement_currency.address}")
-        print(f"Refund Address: {refund_address}")
-        print(f"Currency In: {quote.currency}")
-        print(f"Currency Out: {quote.currency_out}")
-        print(f"Amount: {quote.amount}")
-        print("")
 
         # Create payment
         cn = ChangeNowService()
@@ -84,10 +63,6 @@ class PaymentService(BaseService[Payment]):
             currency_out=quote.currency_out,
             amount=quote.amount,
         )
-
-        print("-- Exchange --")
-        for k, v in exch.model_dump().items():
-            print(f"{k}: {v}")
 
         payment = Payment(
             order_id=order_id,

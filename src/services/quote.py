@@ -1,7 +1,6 @@
 from typing import List, Union
 
-from src.utils.types import ChainId
-from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.currencies.types import CurrencyBase
 from src.utils.logging import get_logger
 
 from .changenow import ChangeNowService, ExchangeType
@@ -25,14 +24,6 @@ class QuoteService():
             from_currencies = [CurrencyBase.from_id(id_) for id_ in from_currencies]
         if type(to_currencies[0]) == str:
             to_currencies = [CurrencyBase.from_id(id_) for id_ in to_currencies]
-
-        print("FROM CURRENCIES")
-        for c in from_currencies:
-            print(c)
-
-        print("\nTO CURRENCIES")
-        for c in to_currencies:
-            print(c)
 
         async with CoinGeckoService() as cg:
             from_currencies = await cg.price(currencies=from_currencies)

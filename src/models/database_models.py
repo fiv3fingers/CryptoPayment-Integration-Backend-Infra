@@ -9,7 +9,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import cuid2
 
-from src.utils.currencies.types import CurrencyBase
 
 Base = declarative_base()
 

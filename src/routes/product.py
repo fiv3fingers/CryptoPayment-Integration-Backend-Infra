@@ -1,16 +1,15 @@
 # routes/product.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from uuid import UUID
 from typing import List
-from database.dependencies import get_db, get_current_organization
-from services.product import ProductService
-from models.schemas.product import (
+from src.database.dependencies import get_db, get_current_organization
+from src.models.database_models import Organization
+from src.services.product import ProductService
+from src.models.schemas.product import (
     Product,
     ProductBase,
     ProductUpdate,
 )
-from src.models.database_models import Organization, User
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -29,7 +28,7 @@ async def create_products(
 
 @router.put("/{product_id}", response_model=Product)
 async def update_product(
-    product_id: UUID,
+    product_id: str,
     data: ProductUpdate,
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
@@ -42,7 +41,7 @@ async def update_product(
 
 @router.get("/{product_id}", response_model=Product)
 async def get_product(
-    product_id: UUID,
+    product_id: str,
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
 ):
@@ -69,7 +68,7 @@ async def list_products(
 
 @router.delete("/{product_id}")
 async def delete_product(
-    product_id: UUID,
+    product_id: str,
     org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
 ):

@@ -2,10 +2,7 @@ from typing import Dict, Optional, List, Union, TypeVar, Callable, Any
 import os
 import logging
 import asyncio
-from asyncio import Semaphore, sleep
-from functools import wraps
 import aiohttp
-from fastapi import Depends
 from aiocache import Cache, cached
 from aiocache.serializers import PickleSerializer
 
@@ -21,8 +18,6 @@ from tenacity import (
     before_sleep_log
 )
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
