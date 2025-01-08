@@ -19,7 +19,6 @@ class CoinGeckoAPI:
         self.session.headers.update({"accept": "application/json"})
 
     def _get_token_info(self, currency: CurrencyBase) -> Optional[TokenInfo]:
-        # TODO: Add cashing mechanism
         """
         Get detailed information about a token by its contract address.
         

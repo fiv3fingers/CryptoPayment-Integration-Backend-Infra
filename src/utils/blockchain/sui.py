@@ -18,13 +18,13 @@ if SUI_RPC_URL is None:
 
 @dataclass
 class TokenBalance:
-    coin_type: str  # Address/type of the coin
+    coin_type: str  # Address of the coin
     balance: int    # Raw balance
     balance_ui: float  # UI balance (considering decimals)
-    decimals: int   # Number of decimals
-    symbol: str     # Token symbol
-    description: str  # Token description
-    iconUrl: str    # Token icon URL
+    decimals: int
+    symbol: str
+    description: str
+    iconUrl: str
 
 def get_token_balances(address: str) -> List[Balance]:
     """Get SUI token balances for an address"""

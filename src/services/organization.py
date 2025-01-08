@@ -2,29 +2,22 @@ from typing import Optional, List, Tuple
 from sqlalchemy import select
 from src.models.database_models import Organization, OrganizationMember, SettlementCurrency, User
 from src.models.schemas.organization import (
-    OrganizationBase, 
     OrganizationCreate,
-    OrganizationCreateResponse,
     OrganizationUpdate
 )
-from fastapi import Depends, HTTPException
-import logging
-from src.database.database import get_db
 from src.utils.common import generate_api_credentials, hash_secret
 from src.services.base import BaseService
 
-from src.models import database_models
+from fastapi import HTTPException
 
+import logging
 
 logger = logging.getLogger(__name__)
 
 class OrganizationService(BaseService[Organization]):
     async def create(self, user_id: str, data: OrganizationCreate) -> tuple[Organization, str]:
-        """Create a new organization with API credentials."""
-        # Generate API credentials
         api_key, api_secret = generate_api_credentials()
         
-        # Create org with hashed secret
         org = Organization(
             name=data.name,
             owner_id=user_id,
@@ -46,7 +39,6 @@ class OrganizationService(BaseService[Organization]):
             self.db.commit()
             self.db.refresh(member)
 
-            # Return both org and unhashed secret
             return org, api_secret
 
         except Exception as e:

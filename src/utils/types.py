@@ -1,4 +1,3 @@
-# utils/types.py
 from enum import Enum
 
 class ChainId(int, Enum):
