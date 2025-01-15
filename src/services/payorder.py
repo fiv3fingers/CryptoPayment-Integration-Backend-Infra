@@ -1,0 +1,236 @@
+# services/payorder.py
+from datetime import datetime, timedelta
+import pytz
+
+from src.models.enums import RoutingServiceType, PayOrderStatus, PayOrderMode
+from src.models.schemas.payorder import PayOrderCreate, PayOrderResponse
+
+from src.models.database_models import Organization, SettlementCurrency, PayOrder
+
+from .changenow import ChangeNowService
+from .quote import QuoteService
+
+from .base import BaseService
+from fastapi import HTTPException
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+class PayOrderService(BaseService[PayOrder]):
+
+    async def create_sale_payorder(self, org_id, req: PayOrderCreate):
+        org = self.db.query(Organization).get(org_id)
+        settlement_currencies = [SettlementCurrency.from_dict(c) for c in org.settlement_currencies]
+
+        # must include valaue usd
+        if not req.out_value_usd:
+            raise HTTPException(
+                status_code=400,
+                detail="out_value_usd is required for sales"
+            )
+
+        # Find optimal route
+        quote_service = QuoteService()
+        quotes = await quote_service._get_quote_value_usd(
+            from_currencies=[req.in_currency_id],
+            to_currencies=[c.currency_id for c in settlement_currencies],
+            value_usd=req.out_value_usd
+        )
+
+        quote = min(quotes, key=lambda x: x.value_usd)
+        settlement_currency = next(c for c in settlement_currencies if c.currency_id == quote.out_currency.id)
+
+        # Create ChangeNow exchange
+        cn = ChangeNowService()
+        exch = await cn.exchange(
+            address=settlement_currency.address,
+            refund_address=req.refund_address,
+            amount=quote.amount,
+            currency_in=quote.in_currency,
+            currency_out=quote.out_currency
+        )
+
+        # Create PayOrder
+        pay_order = PayOrder(
+            organization_id=org_id,
+            mode=req.mode,
+            status=PayOrderStatus.PENDING,
+            in_value_usd=quote.value_usd,
+            in_amount=exch.from_amount,
+            in_currency_id=req.in_currency_id,
+            in_address=exch.deposit_address,
+            out_amount=quote.amount,
+            out_currency_id=quote.out_currency.id,
+            out_address=settlement_currency.address,
+            refund_address=req.refund_address,
+            out_value_usd=req.out_value_usd,
+            metadata=req.metadata,
+            expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
+        )
+
+        try:
+            self.db.add(pay_order)
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error(f"Error creating PayOrder: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error creating PayOrder"
+            )
+
+        return PayOrderResponse(
+            id=pay_order.id,
+            mode=pay_order.mode,
+            status=pay_order.status,
+            in_currency=quote.in_currency,
+            in_amount=pay_order.in_amount,
+            in_value_usd=pay_order.in_value_usd,
+            in_address=pay_order.in_address,
+            metadata=pay_order.metadata,
+            created_at=pay_order.created_at,
+            expires_at=pay_order.expires_at,
+            out_currency=None,
+            out_amount=None,
+            out_value_usd=None,
+            out_address=None,
+        )
+
+
+    async def create_deposit_payorder(self, org_id, req: PayOrderCreate):
+        org = self.db.query(Organization).get(org_id)
+
+        print("~~~ DEPOSIT PAYORDER ~~~")
+        for (k, v) in req.model_dump().items():
+            print(f"{k}: {v}")
+
+        # must include out_amount
+        if not req.out_amount:
+            raise HTTPException(
+                status_code=400,
+                detail="out_amount is required for deposits"
+            )
+
+        # must include out_currency_id
+        if not req.out_currency_id:
+            raise HTTPException(
+                status_code=400,
+                detail="out_currency_id is required for deposits"
+            )
+
+        # must include out_address
+        if not req.out_address:
+            raise HTTPException(
+                status_code=400,
+                detail="out_address is required for deposits"
+            )
+
+        # Find optimal route
+        quote_service = QuoteService()
+        quotes = await quote_service._get_quote_currency_out(
+            from_currencies=[req.in_currency_id],
+            to_currency=req.out_currency_id,
+            amount_out=req.out_amount
+        )
+
+        quote = min(quotes, key=lambda x: x.value_usd)
+
+        print(f"~~~ QUOTE ~~~")
+        for (k, v) in quote.model_dump().items():
+            print(f"{k}: {v}")
+
+
+        # Create ChangeNow exchange
+        cn = ChangeNowService()
+        exch = await cn.exchange(
+            address=req.out_address,
+            refund_address=req.refund_address,
+            amount=quote.amount,
+            currency_in=quote.in_currency,
+            currency_out=quote.out_currency
+        )
+
+        # Create PayOrder
+        pay_order = PayOrder(
+            organization_id=org_id,
+            mode=req.mode,
+            status=PayOrderStatus.PENDING,
+            in_value_usd=quote.value_usd,
+            in_amount=exch.from_amount,
+            in_currency_id=req.in_currency_id,
+            in_address=exch.deposit_address,
+            out_value_usd=None,
+            out_amount=quote.amount,
+            out_currency_id=quote.out_currency.id,
+            out_address=req.out_address,
+            refund_address=req.refund_address,
+            expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
+        )
+
+        try:
+            self.db.add(pay_order)
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error(f"Error creating PayOrder: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error creating PayOrder"
+            )
+
+        return PayOrderResponse(
+            id=pay_order.id,
+            mode=pay_order.mode,
+            status=pay_order.status,
+            in_currency=quote.in_currency,
+            in_amount=pay_order.in_amount,
+            in_value_usd=pay_order.in_value_usd,
+            in_address=pay_order.in_address,
+            created_at=pay_order.created_at,
+            expires_at=pay_order.expires_at,
+            out_currency=quote.out_currency,
+            out_amount=pay_order.out_amount,
+            out_value_usd=pay_order.out_value_usd,
+            out_address=pay_order.out_address,
+        )
+
+
+    async def create(self, org_id, req: PayOrderCreate):
+        if req.mode == PayOrderMode.SALE:
+            print(f"~~~ SALE PAYORDER ~~~")
+            return await self.create_sale_payorder(org_id, req)
+        elif req.mode == PayOrderMode.DEPOSIT:
+            print(f"~~~ DEPOSIT PAYORDER ~~~")
+            return await self.create_deposit_payorder(org_id, req)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid mode"
+            )
+
+
+
+
+
+
+
+
+
+
+        
+
+        
+
+
+
+
+
+        
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List, Union, TypeVar, Callable, Any
+from typing import Dict, Optional, List, Union
 import os
 import logging
 import asyncio
@@ -65,8 +65,8 @@ class CoinGeckoService:
             await self.session.close()
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=30, max=90),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=60, max=90),
         retry=retry_if_exception_type((aiohttp.ClientError, RateLimitError)),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )
@@ -132,8 +132,8 @@ class CoinGeckoService:
         return None
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=30, max=90),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=60, max=90),
         retry=retry_if_exception_type((aiohttp.ClientError, RateLimitError)),
         before_sleep=before_sleep_log(logger, logging.WARNING)
     )

@@ -1,12 +1,11 @@
 from fastapi import Depends, HTTPException, status
 
 from fastapi.security import APIKeyHeader 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from ..models.database_models import User, Organization
-from .database import get_db
+from src.models.database_models import Organization
+from src.database.database import get_db
 
-import jwt
 
 import os
 

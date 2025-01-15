@@ -1,10 +1,7 @@
 from typing import Optional, List, Dict, AsyncGenerator, Union
-import json
 import os
 import aiohttp
 from aiocache import Cache, cached
-from aiocache.serializers import PickleSerializer
-from fastapi import Depends
 
 from src.utils.types import ChainId, ServiceType
 from src.utils.currencies.types import Currency, CurrencyBase

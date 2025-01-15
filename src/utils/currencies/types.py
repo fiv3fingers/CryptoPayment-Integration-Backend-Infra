@@ -67,7 +67,7 @@ class CurrencyBase(BaseModel):
         """Create a CurrencyBase instance from its string identifier.
         
         Args:
-            id: String in format "{chain_id}" or "{chain_id}:{address}"
+            id: String in format "{chain_id}" or "{chain_id}-{address}"
             
         Returns:
             CurrencyBase instance
