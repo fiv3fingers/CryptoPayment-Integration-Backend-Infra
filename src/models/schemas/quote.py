@@ -1,25 +1,25 @@
 # models/schemas/quote.py
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 
-from models.schemas.currency import Currency
-
+from src.utils.types import ChainId
+from src.utils.currencies.types import Currency
 
 
 class CurrencyQuote(BaseModel):
-    currency: Currency
     amount: float
+    value_usd: float
+    in_currency: Currency
+    out_currency: Currency
 
 
 class QuoteRequest(BaseModel):
-    order_id: UUID4
-    user_address: str
-    chain_name: str
+    address: str        # wallet address of the user
+    chain_id: ChainId
 
 
 class QuoteResponse(BaseModel):
-    order_id: UUID4
     timestamp: datetime
     quotes: List[CurrencyQuote]
 

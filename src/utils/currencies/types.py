@@ -1,0 +1,172 @@
+# utils/currencies/types.py
+from pydantic import BaseModel, Field, computed_field, field_validator
+from typing import Optional, Union
+
+from src.utils.types import ChainId
+
+from src.utils.chains.types import Chain 
+from src.utils.chains.queries import get_chain_by_id
+
+SEPARATOR_SYMBOL: str = "-"
+
+
+
+class CurrencyBase(BaseModel):
+
+    """Base class for all currencies.
+    
+    A CurrencyBase represents either:
+    - A native blockchain currency (ETH, BTC, SOL etc.)
+    - A token contract on a specific blockchain
+    
+    Attributes:
+        address: The contract address, or None for native currencies
+        chain_id: The blockchain's identifier where this currency exists
+        
+    The currency's unique identifier is constructed as:
+        - For tokens: "{chain_id}-{lowercase_address}"
+        - For native currencies: "{chain_id}"
+    """
+
+    # Fields
+    address: Optional[str] = Field(
+        default=None,
+        description="Contract address, or None for native currencies",
+    )
+    chain_id: ChainId = Field(
+        description="Identifier of the blockchain where this currency exists"
+    )
+
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v: Optional[str]) -> Optional[str]:
+        """Validate the address format.
+        
+        - Must not contain '-' character (used as separator in ID)
+        - Converts to lowercase for consistency
+        """
+        if v is None:
+            return None
+            
+        if SEPARATOR_SYMBOL in v:
+            raise ValueError(f"Address cannot contain {SEPARATOR_SYMBOL} character")
+            
+        return v.lower()  # normalize to lowercase
+    
+
+    @computed_field
+    def id(self) -> str:
+        """Generate the unique identifier for this currency."""
+        if self.address:
+            return f"{self.chain_id.value}{SEPARATOR_SYMBOL}{self.address}"
+        return str(self.chain_id.value)
+    
+
+    @classmethod
+    def from_id(cls, id: str) -> "CurrencyBase":
+        """Create a CurrencyBase instance from its string identifier.
+        
+        Args:
+            id: String in format "{chain_id}" or "{chain_id}-{address}"
+            
+        Returns:
+            CurrencyBase instance
+            
+        Raises:
+            ValueError: If the id format is invalid
+        """
+        
+        parts = id.split(SEPARATOR_SYMBOL)
+        if len(parts) == 1:
+            return cls(chain_id=ChainId(int(parts[0])))
+        else:
+            chain_id, address = parts
+            return cls(
+                chain_id=ChainId(int(chain_id)),
+                address=address
+            )
+
+    @classmethod
+    def from_chain(cls, chain: Union[Chain, ChainId]) -> "CurrencyBase":
+        """Create a Native CurrencyBase instance from a Chain instance or ChainId enum.
+        
+        Args:
+            chain: Chain instance or ChainId enum
+            
+        Returns:
+            CurrencyBase instance
+        """
+
+        if isinstance(chain, Chain):
+            return cls(chain_id=chain.id, address=chain.nativeCurrency.address)
+
+        _chain = get_chain_by_id(chain)
+        return cls(chain_id=_chain.id, address=_chain.nativeCurrency.address)
+
+
+
+
+    @property
+    def chain(self) -> Chain:
+        """Get the Chain instance for this currency's chain."""
+        return get_chain_by_id(self.chain_id)
+
+    @property
+    def is_native(self) -> bool:
+        """Whether this is a native blockchain currency."""
+
+        address = self.address
+        if address is not None:
+            address = address.lower()
+
+        native_currency_address = self.chain.nativeCurrency.address
+        if native_currency_address is not None:
+            native_currency_address = native_currency_address.lower()
+
+        if address == native_currency_address:
+            return True
+        return False
+
+
+
+               
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CurrencyBase):
+            return NotImplemented
+        return self.id == other.id
+        
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __str__(self) -> str:
+        return self.id
+
+
+class Currency(CurrencyBase):
+    name: str = Field(
+        description="Currency name"
+    )
+    ticker: str = Field(
+        description="Currency ticker symbol"
+    )
+    decimals: int = Field(
+        description="Number of decimal places",
+        default=(lambda self: self._decimals_for_native())
+    )
+    image: Optional[str] = Field(
+        default=None,
+        description="URL to currency logo"
+    )
+    price_usd: Optional[float] = Field(
+        default=None,
+        description="Price in USD"
+    )
+
+    def __str__(self) -> str:
+        return f"{self.ticker} ({self.name})"
+
+    def _decimals_for_native(self) -> int:
+        if self.is_native:
+            return self.chain.nativeCurrency.decimals
+        return self.decimals
+

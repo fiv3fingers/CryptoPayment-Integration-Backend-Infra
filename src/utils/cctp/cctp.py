@@ -7,7 +7,7 @@ import requests
 import logging
 
 from web3 import Web3
-from web3.contract import Contract
+from web3.contract.contract import Contract
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_utils.address import to_checksum_address
@@ -15,7 +15,6 @@ from eth_utils.crypto import keccak
 
 from abis import TOKEN_MESSENGER_ABI, USDC_ABI, MESSAGE_TRANSMITTER_ABI
 
-import asyncio
 
 ATTESTATION_BASE_URL = 'https://iris-api-sandbox.circle.com/attestations/'
 
