@@ -34,10 +34,11 @@ class QuoteService():
                     _quotes = []
                     for to_currency in to_currencies:
                         try:
+                            amount_out = value_usd / to_currency.price_usd
                             est_currency_in_amount = await cn.estimate(
                                 currency_in=from_currency, 
                                 currency_out=to_currency,
-                                amount=value_usd / to_currency.price_usd,
+                                amount=amount_out,
                                 exchange_type=ExchangeType.REVERSE)
 
 
@@ -46,6 +47,7 @@ class QuoteService():
                                 "from_currency": from_currency,
                                 "to_currency": to_currency,
                                 "amount_in": est_currency_in_amount,
+                                "amount_out": amount_out,
                                 "value_usd_in": est_currency_in_value_usd,
                             })
 
@@ -57,7 +59,8 @@ class QuoteService():
                         best_quote = min(_quotes, key=lambda x: x["value_usd_in"])
                         best_quote = CurrencyQuote(
                             in_currency=best_quote["from_currency"],
-                            amount=best_quote["amount_in"],
+                            in_amount=best_quote["amount_in"],
+                            out_amount=best_quote["amount_out"],
                             value_usd=best_quote["value_usd_in"],
                             out_currency=best_quote["to_currency"]
                         )
@@ -93,7 +96,8 @@ class QuoteService():
                         est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
                         quotes.append(CurrencyQuote(
                             in_currency=from_currency,
-                            amount=est_currency_in_amount,
+                            in_amount=est_currency_in_amount,
+                            out_amount=amount_out,
                             value_usd=est_currency_in_value_usd,
                             out_currency=to_currency[0]
                         ))

@@ -9,6 +9,7 @@ class RoutingServiceType(int, Enum):
 class PayOrderStatus(Enum):
     PENDING = "pending"
     COMPLETED = "completed"
+    AWAITING_PAYMENT = "awaiting_payment"
     FAILED = "failed"
 
 class PayOrderMode(Enum):
