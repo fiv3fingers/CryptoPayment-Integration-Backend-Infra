@@ -1,9 +1,9 @@
-from typing import Optional, List, Dict, AsyncGenerator, Union
+from typing import Optional, List, Union
 import os
 import aiohttp
 from aiocache import Cache, cached
 
-from src.utils.types import ChainId, ServiceType
+from src.utils.types import ServiceType
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.changenow.types import (
     ChangeNowCurrency,
@@ -49,13 +49,13 @@ def get_currency_cache_key(_, self, currency: Union[Currency, CurrencyBase]) -> 
 
 class ChangeNowService:
     """ChangeNow API service with caching."""
-    
+
     def __init__(self, api_key: Optional[str] = None):
         """Initialize ChangeNow service."""
         self.api_key = api_key or os.getenv('CHANGENOW_API_KEY')
         if not self.api_key:
             raise ValueError("API key must be provided or set in CHANGENOW_API_KEY environment variable")
-        
+
         self.base_url = "https://api.changenow.io/v2"
         self.headers = {
             'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ class ChangeNowService:
                 params['sell'] = str(sell).lower()
 
             logger.debug(f"Fetching available currencies with params: {params}")
-            
+
             async with self.session.get(
                 f"{self.base_url}/exchange/currencies",
                 params=params
@@ -128,7 +128,7 @@ class ChangeNowService:
         try:
             params = request.model_dump(by_alias=True, exclude_none=True)
             logger.debug(f"Creating estimate with params: {params}")
-            
+
             async with self.session.get(
                 f"{self.base_url}/exchange/estimated-amount",
                 params=params
@@ -148,9 +148,9 @@ class ChangeNowService:
         try:
             data = request.model_dump(by_alias=True, exclude_none=True)
             data["fromAmount"] = f"{float(data['fromAmount']):.5f}"
-            
+
             logger.debug(f"Creating exchange with data: {data}")
-            
+
             async with self.session.post(
                 f"{self.base_url}/exchange",
                 json=data
@@ -163,7 +163,7 @@ class ChangeNowService:
             logger.error(f"Error creating exchange: {e}")
             raise
 
-    async def _get_exchange_status(self, id: str) -> ExchangeStatus:
+    async def _get_exchange_status(self, exchange_id: str) -> ExchangeStatus:
         """Get exchange status."""
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)
@@ -171,13 +171,13 @@ class ChangeNowService:
         try:
             async with self.session.get(
                 f"{self.base_url}/exchange/by-id",
-                params={"id": id}
+                params={"id": exchange_id}
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
                 return ExchangeStatus.model_validate(data)
         except Exception as e:
-            logger.error(f"Error getting exchange status: {e}")
+            logger.error("Error getting exchange status: %s", e)
             raise
 
     @cached(
@@ -190,10 +190,10 @@ class ChangeNowService:
         try:
             network_name = currency.chain.get_alias(ServiceType.CHANGENOW)
             logger.debug(f"Looking up ChangeNow currency for {currency.ticker} on {network_name}")
-            
+
             cn_currencies = await self.get_available_currencies()
             relevant_currencies = [c for c in cn_currencies if c.network == network_name]
-            
+
             if not relevant_currencies:
                 raise ValueError(f"No currencies found for network {network_name}")
 
@@ -215,7 +215,7 @@ class ChangeNowService:
         currency_in: Union[Currency, CurrencyBase],
         currency_out: Union[Currency, CurrencyBase],
         amount: float,
-        type: ExchangeType = ExchangeType.DIRECT,
+        exchange_type: ExchangeType = ExchangeType.DIRECT,
     ) -> float:
         """Get exchange estimate."""
         try:
@@ -223,12 +223,12 @@ class ChangeNowService:
             cn_currency_out = await self._get_changenow_currency(currency_out)
             amount = float(f"{amount:.5f}")
 
-            logger.debug(f"Estimating {type} exchange:")
+            logger.debug(f"Estimating {exchange_type} exchange:")
             logger.debug(f"From: {currency_in.ticker} ({cn_currency_in.network})")
             logger.debug(f"To: {currency_out.ticker} ({cn_currency_out.network})")
             logger.debug(f"Amount: {amount}")
 
-            if type == ExchangeType.DIRECT:
+            if exchange_type == ExchangeType.DIRECT:
                 est = await self._create_estimate(EstimateRequest(
                     from_currency=cn_currency_in.ticker,
                     to_currency=cn_currency_out.ticker,
@@ -239,7 +239,7 @@ class ChangeNowService:
                     type=ExchangeType.DIRECT
                 ))
                 return est.to_amount
-            elif type == ExchangeType.REVERSE:
+            if exchange_type == ExchangeType.REVERSE:
                 est = await self._create_estimate(EstimateRequest(
                     from_currency=cn_currency_in.ticker,
                     to_currency=cn_currency_out.ticker,
@@ -250,8 +250,8 @@ class ChangeNowService:
                     type=ExchangeType.REVERSE
                 ))
                 return est.from_amount
-            else:
-                raise ValueError(f"Invalid exchange type {type}")
+
+            raise ValueError(f"Invalid exchange type {exchange_type}")
         except Exception as e:
             logger.error(f"Error estimating exchange: {e}")
             raise
@@ -263,14 +263,14 @@ class ChangeNowService:
         amount: float,
         address: str,
         refund_address: str,
-        type: ExchangeType = ExchangeType.DIRECT,
+        exchange_type: ExchangeType = ExchangeType.DIRECT,
     ) -> Exchange:
         """Create exchange transaction."""
         try:
             cn_currency_in = await self._get_changenow_currency(currency_in)
             cn_currency_out = await self._get_changenow_currency(currency_out)
 
-            if type == ExchangeType.DIRECT:
+            if exchange_type == ExchangeType.DIRECT:
                 return await self._create_exchange(ExchangeRequest(
                     from_currency=cn_currency_in.ticker,
                     to_currency=cn_currency_out.ticker,
@@ -282,7 +282,7 @@ class ChangeNowService:
                     flow=Flow.STANDARD,
                     type=ExchangeType.DIRECT
                 ))
-            elif type == ExchangeType.REVERSE:
+            if exchange_type == ExchangeType.REVERSE:
                 return await self._create_exchange(ExchangeRequest(
                     from_currency=cn_currency_out.ticker,
                     to_currency=cn_currency_in.ticker,
@@ -294,9 +294,9 @@ class ChangeNowService:
                     flow=Flow.STANDARD,
                     type=ExchangeType.REVERSE
                 ))
-            else:
-                raise ValueError(f"Invalid exchange type {type}")
+
+            raise ValueError(f"Invalid exchange type {exchange_type}")
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
-
+        

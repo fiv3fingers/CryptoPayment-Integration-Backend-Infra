@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
-import requests
 from typing import List
+import requests
 
 from src.utils.types import ChainId
 
@@ -25,7 +25,6 @@ class Metadata:
     uri: str
 
 
-
 def get_token_balances(pubkey: str) -> List[Balance]:
     filters = [
         {
@@ -38,7 +37,7 @@ def get_token_balances(pubkey: str) -> List[Balance]:
             }
         }
     ]
-    
+
     # Construct the RPC request
     payload = {
         "jsonrpc": "2.0",
