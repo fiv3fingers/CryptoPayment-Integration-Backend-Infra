@@ -34,34 +34,39 @@ export interface PayTokenAmount {
 from typing import Optional
 from src.utils.currencies.types import Currency
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.models.enums import PayOrderMode, PayOrderStatus
 
-from enum import Enum
-
 
 class PayOrderCreate(BaseModel):
-    mode: PayOrderMode
-    in_currency_id: str
-    out_currency_id: Optional[str]  # only for deposits
-    out_amount: Optional[float]     # only for deposits
-    out_address: Optional[str]      # only for deposits
+    mode: PayOrderMode = Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
+    in_currency_id: str = Field(examples=["1-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"])
+    out_currency_id: Optional[str] = Field(examples=["30000000000001"]) # only for deposits
+    out_amount: Optional[float] = Field(examples=[200]) # only for deposits
+    out_address: Optional[str] = Field(examples=["9zUcFmUcdMwgH84vKofyL9xzULXh9F7uviNSYWb81f7e"])      # only for deposits
 
-    refund_address: str             # refund address
-    out_value_usd: Optional[float]  # only for sales
-    metadata: Optional[dict] = Field(default_factory=dict)
+    refund_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])            # refund address
+    out_value_usd: Optional[float] = Field(examples=[250])  # only for sales
+    metadata: Optional[dict] = Field(default_factory=dict, examples=[{
+        "items": [{
+            "name": "T-shirt",
+            "description": "A cool t-shirt",
+            "image": "https://example.com/tshirt.jpg",
+            "price": 250,
+        }]
+    }])
 
 
 class PayOrderResponse(BaseModel):
-    id: str
-    mode: PayOrderMode
-    status: PayOrderStatus
+    id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
+    mode: PayOrderMode = Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
+    status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
 
     in_currency: Currency
-    in_amount: float
-    in_value_usd: float
-    in_address: str
+    in_amount: float = Field(examples=[0.1])
+    in_value_usd: float = Field(examples=[250])
+    in_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
 
     out_currency: Optional[Currency]          # only for deposits
     out_amount: Optional[float]             # only for deposits

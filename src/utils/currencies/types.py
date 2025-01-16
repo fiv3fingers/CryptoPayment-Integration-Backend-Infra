@@ -144,20 +144,25 @@ class CurrencyBase(BaseModel):
 
 class Currency(CurrencyBase):
     name: str = Field(
+        examples=["Wrapped Ethereum"],
         description="Currency name"
     )
     ticker: str = Field(
+        examples=["WETH"],
         description="Currency ticker symbol"
     )
     decimals: int = Field(
+        examples=[18],
         description="Number of decimal places",
         default=(lambda self: self._decimals_for_native())
     )
     image: Optional[str] = Field(
+        examples=["https://example.com/logo.png"],
         default=None,
         description="URL to currency logo"
     )
     price_usd: Optional[float] = Field(
+        examples=[3400.0],
         default=None,
         description="Price in USD"
     )
