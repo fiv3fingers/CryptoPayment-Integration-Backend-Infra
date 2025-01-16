@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 import pytz
 
-from src.models.enums import RoutingServiceType, PayOrderStatus, PayOrderMode
+from src.models.enums import PayOrderStatus, PayOrderMode
 from src.models.schemas.payorder import PayOrderCreate, PayOrderResponse
 
 from src.models.database_models import Organization, SettlementCurrency, PayOrder
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class PayOrderService(BaseService[PayOrder]):
 
-    async def create_sale_payorder(self, org_id, req: PayOrderCreate):
+    async def create_sale_payorder(self, org_id: str, req: PayOrderCreate):
         org = self.db.query(Organization).get(org_id)
         settlement_currencies = [SettlementCurrency.from_dict(c) for c in org.settlement_currencies]
 
@@ -74,11 +74,11 @@ class PayOrderService(BaseService[PayOrder]):
             self.db.commit()
             self.db.refresh(pay_order)
         except Exception as e:
-            logger.error(f"Error creating PayOrder: {e}")
+            logger.error("Error creating PayOrder: %s", e)
             raise HTTPException(
                 status_code=500,
                 detail="Error creating PayOrder"
-            )
+            ) from e
 
         return PayOrderResponse(
             id=pay_order.id,
@@ -98,8 +98,8 @@ class PayOrderService(BaseService[PayOrder]):
         )
 
 
-    async def create_deposit_payorder(self, org_id, req: PayOrderCreate):
-        org = self.db.query(Organization).get(org_id)
+    async def create_deposit_payorder(self, org_id: str, req: PayOrderCreate):
+        # org = self.db.query(Organization).get(org_id)
 
         print("~~~ DEPOSIT PAYORDER ~~~")
         for (k, v) in req.model_dump().items():
@@ -136,7 +136,7 @@ class PayOrderService(BaseService[PayOrder]):
 
         quote = min(quotes, key=lambda x: x.value_usd)
 
-        print(f"~~~ QUOTE ~~~")
+        print("~~~ QUOTE ~~~")
         for (k, v) in quote.model_dump().items():
             print(f"{k}: {v}")
 
@@ -173,11 +173,11 @@ class PayOrderService(BaseService[PayOrder]):
             self.db.commit()
             self.db.refresh(pay_order)
         except Exception as e:
-            logger.error(f"Error creating PayOrder: {e}")
+            logger.error("Error creating PayOrder: %s", e)
             raise HTTPException(
                 status_code=500,
                 detail="Error creating PayOrder"
-            )
+            ) from e
 
         return PayOrderResponse(
             id=pay_order.id,
@@ -196,41 +196,33 @@ class PayOrderService(BaseService[PayOrder]):
         )
 
 
-    async def create(self, org_id, req: PayOrderCreate):
+    async def create(self, org_id: str, req: PayOrderCreate):
+        """Create a pay order"""
         if req.mode == PayOrderMode.SALE:
-            print(f"~~~ SALE PAYORDER ~~~")
+            print("~~~ SALE PAYORDER ~~~")
             return await self.create_sale_payorder(org_id, req)
-        elif req.mode == PayOrderMode.DEPOSIT:
-            print(f"~~~ DEPOSIT PAYORDER ~~~")
+        if req.mode == PayOrderMode.DEPOSIT:
+            print("~~~ DEPOSIT PAYORDER ~~~")
             return await self.create_deposit_payorder(org_id, req)
-        else:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid mode"
+        )
+
+    async def get(self, org_id: str, order_id: str):
+        """Get a pay order by id"""
+        pay_order = self.db.query(PayOrder).where(
+            PayOrder.id == order_id, PayOrder.organization_id == org_id
+            ).first()
+        if pay_order is None:
             raise HTTPException(
-                status_code=400,
-                detail="Invalid mode"
+                status_code=404,
+                detail="Order not found"
             )
 
-
-
-
-
-
-
-
-
-
-        
-
-        
-
-
-
-
-
-        
-
-
-
-
-
-
-
+        return pay_order
+  
+    async def get_all(self, org_id: str):
+        """Get all pay orders for an organization"""
+        return self.db.query(PayOrder).where(PayOrder.organization_id == org_id).all()
