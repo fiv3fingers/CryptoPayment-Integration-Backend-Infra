@@ -7,13 +7,6 @@ from src.models.database_models import Organization
 from src.database.database import get_db
 
 
-import os
-
-
-SECRET_KEY = os.getenv("AUTH_SECRET")
-ALGORITHM = "HS256"
-
-
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 security = HTTPBearer()

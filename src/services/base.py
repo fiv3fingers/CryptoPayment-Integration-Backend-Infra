@@ -1,9 +1,9 @@
 # services/base.py
-from typing import Generic, TypeVar, Optional, List, Type
+from typing import Generic, TypeVar
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
-import logging
 
 T = TypeVar('T')
 
@@ -20,11 +20,10 @@ class BaseService(Generic[T]):
             return result
         except IntegrityError as e:
             self.db.rollback()
-            logger.error(f"Database integrity error: {str(e)}")
-            raise HTTPException(status_code=400, detail="Database constraint violation")
+            logger.error("Database integrity error: %s", str(e))
+            raise HTTPException(status_code=400, detail="Database constraint violation") from e
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Database operation error: {str(e)}")
-            raise HTTPException(status_code=500, detail="Internal server error")
-
-
+            logger.error("Database operation error: %s", str(e))
+            raise HTTPException(status_code=500, detail="Internal server error") from e
+        

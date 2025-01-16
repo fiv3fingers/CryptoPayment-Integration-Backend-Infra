@@ -6,7 +6,7 @@ from src.utils.types import ChainId
 
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
-from src.utils.chains.types import Chain, ServiceType
+from src.utils.chains.types import ServiceType
 from src.utils.chains.queries import get_chain_by_id
 
 from .types import Balance
@@ -23,23 +23,23 @@ def get_token_balances(address: str, chain_id: ChainId) -> List[Balance]:
     chain = get_chain_by_id(chain_id)
     chain_name = chain.get_alias(ServiceType.ALCHEMY)
     url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
-    
+
     payload = {
         "id": 1,
         "jsonrpc": "2.0",
         "method": "alchemy_getTokenBalances",
         "params": [address]
     }
-    
+
     headers = {
         "accept": "application/json",
         "content-type": "application/json"
     }
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
-        
+
         balances = response.json()["result"]["tokenBalances"]
         return [
             Balance(
@@ -62,19 +62,19 @@ def get_metadata(currency: CurrencyBase) -> Currency:
     chain = currency.chain
     chain_name = chain.get_alias(ServiceType.ALCHEMY)
     url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
-    
+
     payload = {
         "id": 1,
         "jsonrpc": "2.0",
         "method": "alchemy_getTokenMetadata",
         "params": [currency.address]
     }
-    
+
     headers = {
         "accept": "application/json",
         "content-type": "application/json"
     }
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -89,7 +89,7 @@ def get_metadata(currency: CurrencyBase) -> Currency:
         )
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to get token metadata for {token_address}: {str(e)}")
+        logger.error(f"Failed to get token metadata for {currency.address}: {str(e)}")
         return None
 
 
@@ -100,19 +100,19 @@ def get_native_balance(address: str, chain_id: ChainId) -> Balance:
     chain = get_chain_by_id(chain_id)
     chain_name = chain.get_alias(ServiceType.ALCHEMY)
     url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
-    
+
     payload = {
         "id": 1,
         "jsonrpc": "2.0",
         "method": "eth_getBalance",
         "params": [address]
     }
-    
+
     headers = {
         "accept": "application/json",
         "content-type": "application/json"
     }
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -132,5 +132,3 @@ def get_wallet_balances(address: str, chain_id: ChainId) -> List[Balance]:
     native_balance = get_native_balance(address, chain_id)
     token_balances = get_token_balances(address, chain_id)
     return [native_balance] + token_balances
-
-

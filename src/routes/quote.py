@@ -60,8 +60,8 @@ async def get_quote_currency(
     user_address: str,
     out_currency_id: str,
     amount_out: float,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+    _: Organization = Depends(get_current_organization),
+    # db: Session = Depends(get_db)
 ):
     """Get a quote for a specific order"""
 
