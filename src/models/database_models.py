@@ -55,21 +55,27 @@ class PayOrder(Base):
     organization_id = Column(String, ForeignKey('Organization.id', ondelete='CASCADE'), nullable=False)
 
     mode = Column(SQLEnum(PayOrderMode), nullable=False)
-    status = Column(SQLEnum(PayOrderStatus), nullable=False, default=PayOrderStatus.PENDING)
+    status = Column(
+        SQLEnum(
+                PayOrderStatus,
+                values_callable=lambda obj: [e.value for e in obj],
+                native_enum=False
+            ),
+        default=PayOrderStatus.PENDING)
 
     # Input payment details
-    in_currency_id = Column(String, nullable=False)
-    in_amount = Column(Float, nullable=False) 
-    in_address = Column(String, nullable=False)
-    in_value_usd = Column(Float, nullable=False)
+    in_currency_id = Column(String, nullable=True)
+    in_amount = Column(Float, nullable=True) 
+    in_address = Column(String, nullable=True)
+    in_value_usd = Column(Float, nullable=True)
     
     # Output payment details
-    out_currency_id = Column(String, nullable=False)
-    out_amount = Column(Float, nullable=False)
-    out_address = Column(String, nullable=False)
+    out_currency_id = Column(String, nullable=True)
+    out_amount = Column(Float, nullable=True)
+    out_address = Column(String, nullable=True)
     out_value_usd = Column(Float, nullable=True)
 
-    refund_address = Column(String, nullable=False)
+    refund_address = Column(String, nullable=True)
     
     # External service details
     routing_service = Column(SQLEnum(RoutingServiceType), nullable=True)

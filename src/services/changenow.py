@@ -236,8 +236,8 @@ class ChangeNowService:
             amount = float(f"{amount:.5f}")
 
             logger.debug(f"Estimating {exchange_type} exchange:")
-            logger.debug(f"From: {currency_in.ticker} ({cn_currency_in.network})")
-            logger.debug(f"To: {currency_out.ticker} ({cn_currency_out.network})")
+            logger.debug(f"From: {currency_in.id} ({cn_currency_in.network})")
+            logger.debug(f"To: {currency_out.id} ({cn_currency_out.network})")
             logger.debug(f"Amount: {amount}")
 
             if exchange_type == ExchangeType.DIRECT:
