@@ -38,7 +38,7 @@ class QuoteService():
                                 currency_in=from_currency, 
                                 currency_out=to_currency,
                                 amount=value_usd / to_currency.price_usd,
-                                type=ExchangeType.REVERSE)
+                                exchange_type=ExchangeType.REVERSE)
 
 
                             est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
@@ -89,7 +89,7 @@ class QuoteService():
                             currency_in=from_currency, 
                             currency_out=to_currency[0],
                             amount=amount_out,
-                            type=ExchangeType.REVERSE)
+                            exchange_type=ExchangeType.REVERSE)
                         est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
                         quotes.append(CurrencyQuote(
                             in_currency=from_currency,

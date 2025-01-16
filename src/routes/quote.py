@@ -13,6 +13,7 @@ from src.models.database_models import Organization
 
 from src.services.organization import OrganizationService
 from src.services.quote import QuoteService
+from src.services.changenow import ChangeNowService
 from src.utils.blockchain.blockchain import get_wallet_currencies
 from src.models.schemas.quote import (
     QuoteResponse,
@@ -36,10 +37,16 @@ async def get_quote_usd(
 ):
     """Get a quote for a specific order"""
     org_service = OrganizationService(db)
+    cn_service = ChangeNowService()
 
     settlement_currency_ids = [sc.currency_id for sc in await org_service.get_settlement_currencies(org.id)]
 
-    user_currencies = get_wallet_currencies(user_address, chain_id)
+    all_user_currencies = get_wallet_currencies(user_address, chain_id)
+    print(f"all_user_currencies: len={len(all_user_currencies)}")
+    user_currencies = [c for c in all_user_currencies if await cn_service.is_supported(c)]
+    print(f"user_currencies (cn_supported): len={len(user_currencies)}")
+
+
 
     quote_service = QuoteService()
 
@@ -65,7 +72,14 @@ async def get_quote_currency(
 ):
     """Get a quote for a specific order"""
 
-    user_currencies = get_wallet_currencies(user_address, chain_id)
+    cn_service = ChangeNowService()
+
+    all_user_currencies = get_wallet_currencies(user_address, chain_id)
+    print(f"all_user_currencies: len={len(all_user_currencies)}")
+    user_currencies = [c for c in all_user_currencies if await cn_service.is_supported(c)]
+    print(f"user_currencies (cn_supported): len={len(user_currencies)}")
+
+
     quote_service = QuoteService()
 
     quotes = await quote_service._get_quote_currency_out(
