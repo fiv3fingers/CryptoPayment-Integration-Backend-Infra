@@ -47,6 +47,8 @@ def get_currency_cache_key(_, self, currency: Union[Currency, CurrencyBase]) -> 
     """Build cache key for ChangeNow currency lookup."""
     return f"cn_currency:{currency.id}"
 
+
+
 class ChangeNowService:
     """ChangeNow API service with caching."""
 
@@ -189,7 +191,7 @@ class ChangeNowService:
         """Get ChangeNow currency with caching."""
         try:
             network_name = currency.chain.get_alias(ServiceType.CHANGENOW)
-            logger.debug(f"Looking up ChangeNow currency for {currency.ticker} on {network_name}")
+            logger.debug(f"Looking up ChangeNow currency for {currency.id} on {network_name}")
 
             cn_currencies = await self.get_available_currencies()
             relevant_currencies = [c for c in cn_currencies if c.network == network_name]
@@ -209,6 +211,16 @@ class ChangeNowService:
         except Exception as e:
             logger.error(f"Error getting ChangeNow currency: {e}")
             raise
+
+    async def is_supported(self, currency: Union[Currency, CurrencyBase, str]) -> bool:
+        if isinstance(currency, str):
+            currency = CurrencyBase.from_id(currency)
+
+        try:
+            cn_currency = await self._get_changenow_currency(currency)
+            return cn_currency is not None
+        except Exception:
+            return False
 
     async def estimate(
         self,
