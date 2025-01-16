@@ -99,6 +99,7 @@ class CoinGeckoService:
             
             async with self.session.get(url) as response:
                 if response.status == 429:
+                    print(f"Rate limit reached: {response.headers}\n{await response.text()}")
                     raise RateLimitError("Rate limit reached")
                 elif response.status == 404:
                     return None

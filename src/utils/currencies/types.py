@@ -50,6 +50,8 @@ class CurrencyBase(BaseModel):
             
         if SEPARATOR_SYMBOL in v:
             raise ValueError(f"Address cannot contain {SEPARATOR_SYMBOL} character")
+        if v == "":
+            return None
             
         return v.lower()  # normalize to lowercase
     
@@ -76,6 +78,8 @@ class CurrencyBase(BaseModel):
             ValueError: If the id format is invalid
         """
         
+        if SEPARATOR_SYMBOL not in id:
+            return cls(chain_id=ChainId(int(id)))
         parts = id.split(SEPARATOR_SYMBOL)
         if len(parts) == 1:
             return cls(chain_id=ChainId(int(parts[0])))

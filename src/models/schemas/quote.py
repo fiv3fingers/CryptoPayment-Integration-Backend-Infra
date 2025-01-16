@@ -23,5 +23,3 @@ class QuoteRequest(BaseModel):
 class QuoteResponse(BaseModel):
     timestamp: datetime
     quotes: List[CurrencyQuote]
-
-
