@@ -153,7 +153,7 @@ class ExchangeStatus(BaseRequest):
     
     created_at: datetime
     updated_at: datetime
-    valid_until: Optional[datetime] = None
+    valid_until: Optional[datetime] = Field(None, alias="validUntil")
     deposit_received_at: Optional[datetime] = None
     
     deposit_hash: Optional[str] = Field(None, alias="payinHash")

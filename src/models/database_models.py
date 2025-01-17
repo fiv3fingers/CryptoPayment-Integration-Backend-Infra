@@ -1,7 +1,7 @@
 from typing import NamedTuple
 from .enums import PayOrderStatus, PayOrderMode, RoutingServiceType
 from sqlalchemy import (
-    ARRAY, Column, String, ForeignKey, Float, 
+    ARRAY, BigInteger, Column, String, ForeignKey, Float, 
     DateTime, Enum as SQLEnum, func
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -46,7 +46,7 @@ class Organization(Base, TimestampMixin):
     api_secret = Column(String(64), nullable=False)
 
     owner_id = Column(String, nullable=False)
-    settlement_currencies = Column(ARRAY(JSONB), nullable=False)   # list of currency ids
+    settlement_currencies = Column(ARRAY(JSONB), nullable=False)
 
 class PayOrder(Base):
     """ PayOrder model """
@@ -65,16 +65,18 @@ class PayOrder(Base):
         default=PayOrderStatus.PENDING)
 
     # Input payment details
-    in_currency_id = Column(String, nullable=True)
-    in_amount = Column(Float, nullable=True) 
-    in_address = Column(String, nullable=True)
-    in_value_usd = Column(Float, nullable=True)
+    source_currency_id = Column(String, nullable=True)
+    source_amount = Column(Float, nullable=True) 
+    source_value_usd = Column(Float, nullable=True)
+    source_transaction_hash = Column(String, nullable=True)
+    source_deposit_address = Column(String, nullable=True)
     
     # Output payment details
-    out_currency_id = Column(String, nullable=True)
-    out_amount = Column(Float, nullable=True)
-    out_address = Column(String, nullable=True)
-    out_value_usd = Column(Float, nullable=True)
+    destination_currency_id = Column(String, nullable=True)
+    destination_amount = Column(Float, nullable=True)
+    destination_address = Column(String, nullable=True)
+    destination_value_usd = Column(Float, nullable=True)
+    destination_transaction_hash = Column(String, nullable=True)
 
     refund_address = Column(String, nullable=True)
     
@@ -83,7 +85,7 @@ class PayOrder(Base):
     routing_reference = Column(String, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
 
     metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
 
