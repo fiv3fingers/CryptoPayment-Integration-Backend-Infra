@@ -1,11 +1,7 @@
 # services/payorder.py
-from datetime import datetime, timedelta
-from typing import Union
-import pytz
 
 from src.models.enums import PayOrderStatus, PayOrderMode
-from src.models.schemas import payorder
-from src.models.schemas.payorder import CreatePaymentResponse, PayOrderCreate, PayOrderResponse, UpdatePayOrderRequest 
+from src.models.schemas.payorder import CreatePaymentResponse, PayOrderDepositCreate, PayOrderResponse, PayOrderSaleCreate, UpdatePayOrderRequest 
 
 from src.models.database_models import Organization, SettlementCurrency, PayOrder
 from src.services.coingecko import CoinGeckoService
@@ -41,11 +37,8 @@ class PayOrderService(BaseService[PayOrder]):
         return self.db.query(PayOrder).where(PayOrder.organization_id == org_id).all()
 
 
-
-
-
-    async def create_sale(self, org_id: str, req: PayOrderCreate):
-        # must include valaue usd
+    async def create_sale(self, org_id: str, req: PayOrderSaleCreate):
+        # must include value usd
         if not req.out_value_usd:
             raise HTTPException(
                 status_code=400,
@@ -55,11 +48,11 @@ class PayOrderService(BaseService[PayOrder]):
         # Create PayOrder
         pay_order = PayOrder(
             organization_id=org_id,
-            mode=req.mode,
+            mode=PayOrderMode.SALE,
             status=PayOrderStatus.PENDING,
             out_value_usd=req.out_value_usd,
             metadata_=req.metadata,
-            expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
+            # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
         )
 
         try:
@@ -77,19 +70,23 @@ class PayOrderService(BaseService[PayOrder]):
             id=pay_order.id,
             mode=pay_order.mode,
             status=pay_order.status,
+            out_value_usd=pay_order.out_value_usd,
             metadata=pay_order.metadata_,
             created_at=pay_order.created_at,
-            expires_at=pay_order.expires_at,
+            # expires_at=pay_order.expires_at,
         )
 
 
-    async def create_deposit(self, org_id: str, req: PayOrderCreate):
+    async def create_deposit(self, org_id: str, req: PayOrderDepositCreate):
         pay_order = PayOrder(
             organization_id=org_id,
-            mode=req.mode,
+            mode=PayOrderMode.DEPOSIT,
             status=PayOrderStatus.PENDING,
+            out_currency_id=CurrencyBase(req.out_address, req.out_token_chain_id).id(),
+            out_token_address=req.out_token_address,
+            out_amount=req.out_amount,
             metadata_=req.metadata,
-            expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
+            # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
         )
 
         try:
@@ -111,22 +108,6 @@ class PayOrderService(BaseService[PayOrder]):
             created_at=pay_order.created_at,
             expires_at=pay_order.expires_at,
         )
-
-
-    async def create(self, org_id: str, req: PayOrderCreate):
-        """Create a pay order"""
-        if req.mode == PayOrderMode.SALE:
-            print("~~~ SALE PAYORDER ~~~")
-            return await self.create_sale(org_id, req)
-        if req.mode == PayOrderMode.DEPOSIT:
-            print("~~~ DEPOSIT PAYORDER ~~~")
-            return await self.create_deposit(org_id, req)
-
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid mode"
-        )
-
 
 
     async def update_deposit(self, order_id: str, req: UpdatePayOrderRequest):
@@ -257,20 +238,6 @@ class PayOrderService(BaseService[PayOrder]):
         #    out_value_usd=pay_order.out_value_usd
         #)
 
-    async def update(self, order_id: str, req: UpdatePayOrderRequest) -> PayOrderResponse:
-        """Update a pay order"""
-        order = self.db.query(PayOrder).get(order_id)
-        if order is None:
-            raise HTTPException( status_code=404, detail="Order not found")
-
-        if order.mode == PayOrderMode.SALE:
-            return await self.update_sale(order_id, req)
-        if order.mode == PayOrderMode.DEPOSIT:
-            return await self.update_deposit(order_id, req)
-        else:
-            raise HTTPException( status_code=400, detail="Invalid mode")
-
-
 
     async def pay_deposit(self, payorder_id: str, in_token_address: str, in_chain_id: ChainId, refund_address: str):
         """ Create a payment for a deposit """
@@ -298,7 +265,7 @@ class PayOrderService(BaseService[PayOrder]):
             raise HTTPException( status_code=400, detail="out_currency_id is required for deposits")
 
 
-        # Build curenncy objects
+        # Build currency objects
         in_currency = CurrencyBase(address=in_token_address, chain_id=in_chain_id)
         out_currency = CurrencyBase.from_id(pay_order.out_currency_id)
 
@@ -421,7 +388,7 @@ class PayOrderService(BaseService[PayOrder]):
         pay_order.out_address = settlement_currency.address
 
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
-        pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
+        pay_order.expires_at = # from changenow  #datetime.now(pytz.utc) + timedelta(minutes=15)
         pay_order.refund_address = refund_address
 
         try:
@@ -433,6 +400,8 @@ class PayOrderService(BaseService[PayOrder]):
                 status_code=500,
                 detail="Error updating PayOrder"
             )
+        
+        # Return complete pay_order
 
         return CreatePaymentResponse(
             id=pay_order.id,

@@ -6,26 +6,27 @@ from datetime import datetime
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
-class PayOrderCreate(BaseModel):
-    mode: PayOrderMode = Field(examples=[PayOrderMode.SALE])
+class PayOrderSaleCreate(BaseModel):
+    metadata: Optional[dict] = Field(default_factory=dict)
+    
+    # Sale-specific fields
+    out_value_usd: Optional[float] = Field(examples=[250], default=None)
+
+
+class PayOrderDepositCreate(BaseModel):
     metadata: Optional[dict] = Field(default_factory=dict)
     
     # Common fields
     refund_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
-    
-    # Sale-specific fields
-    out_value_usd: Optional[float] = Field(examples=[250], default=None)
     
     # Deposit-specific fields
     out_token_address: Optional[str] = Field(examples=["0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"], default=None)
     out_token_chain_id: Optional[ChainId] = Field(examples=[ChainId.ETH], default=None)
     out_amount: Optional[float] = Field(examples=[200], default=None)
     out_address: Optional[str] = Field(examples=["9zUcFmUcdMwgH84vKofyL9xzULXh9F7uviNSYWb81f7e"], default=None)
-    in_token_address: Optional[str] = Field(examples=["0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"], default=None)
-    in_token_chain_id: Optional[ChainId] = Field(examples=[ChainId.ETH], default=None)
 
 
 class PayOrderResponse(BaseModel):
