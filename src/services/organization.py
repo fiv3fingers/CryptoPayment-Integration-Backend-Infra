@@ -26,5 +26,3 @@ class OrganizationService(BaseService[Organization]):
         return settlement_currencies
         
 
-
-

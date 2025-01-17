@@ -243,7 +243,7 @@ class CoinGeckoService:
 
     async def get_prices(
         self,
-        currencies: List[Union[Currency, CurrencyBase]],
+        currencies: Union[List[Currency], List[CurrencyBase]],
         vs_currency: VSCurrency = VSCurrency.USD,
         precision: Optional[int] = 8
     ) -> List[Price]:
