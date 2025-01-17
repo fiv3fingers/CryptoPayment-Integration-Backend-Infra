@@ -43,6 +43,7 @@ class Organization(Base, TimestampMixin):
     name = Column(String(255), nullable=False)
     
     api_key = Column(String(64), nullable=False, unique=True, index=True)
+    api_secret = Column(String(64), nullable=False)
 
     owner_id = Column(String, nullable=False)
     settlement_currencies = Column(ARRAY(JSONB), nullable=False)   # list of currency ids
