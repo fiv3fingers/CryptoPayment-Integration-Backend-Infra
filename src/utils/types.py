@@ -42,6 +42,6 @@ class ServiceType(str, Enum):
 
 
 class AuthHeaderType(Dict):
-    apikey: str
+    APIKey: str
     signature: str
     timestamp: str

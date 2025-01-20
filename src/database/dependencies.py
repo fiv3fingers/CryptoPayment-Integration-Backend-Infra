@@ -25,9 +25,9 @@ def validate_authorization_header(auth_header: str = Depends(authorization_heade
         return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Signature")
     
     header_parts = parse_header(auth_header)
-    organization = db.query(Organization).filter(Organization.api_key == header_parts["apiKey"]).first()
+    organization = db.query(Organization).filter(Organization.api_key == header_parts.get("APIKey")).first()
 
-    valid = validate_signature(header_parts, organization.secret)
+    valid = validate_signature(header_parts, organization.api_secret)
     if not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Signature")
     
