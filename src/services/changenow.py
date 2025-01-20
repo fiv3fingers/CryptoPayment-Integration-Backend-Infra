@@ -3,7 +3,7 @@ import os
 import aiohttp
 from aiocache import Cache, cached
 
-from src.utils.types import ServiceType
+from src.utils.types import ChainId, ServiceType
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.changenow.types import (
     ChangeNowCurrency,
@@ -311,4 +311,4 @@ class ChangeNowService:
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
-        
+

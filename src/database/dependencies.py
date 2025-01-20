@@ -8,6 +8,7 @@ from src.database.database import get_db
 
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 security = HTTPBearer()
 
@@ -16,4 +17,12 @@ def get_current_organization(api_key: str = Depends(api_key_header), db: Session
     if organization is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
     return organization
+
+
+def validate_signature(authorization: str = Depends(authorization_header)) -> bool:
+    # TODO: Implement this
+    if authorization is None:
+        return False
+    else:
+        return True
 
