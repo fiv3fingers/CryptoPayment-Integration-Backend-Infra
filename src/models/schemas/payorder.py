@@ -17,17 +17,18 @@ class MetadataItems(BaseModel):
     unit_price: Optional[float] = Field(examples=[0.1], default=None)
     currency: Optional[str] = Field(examples=["USD"], default=None)
 
+
 class PayOrderMetadata(BaseModel):
-    items: List[MetadataItems]
+    items: Optional[List[MetadataItems]] = Field(default_factory=list)
 
 
 class CreateSaleRequest(BaseModel):
-    metadata: Optional[PayOrderMetadata]
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=dict)
     destination_value_usd: float = Field(examples=[250], default=None)
 
 
 class CreateDepositRequest(BaseModel):
-    metadata: Optional[PayOrderMetadata]
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=dict)
     refund_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
     destination_token_address: str = Field(examples=["0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"], default=None)
     destination_token_chain_id: ChainId = Field(examples=[ChainId.ETH], default=None)
@@ -64,7 +65,7 @@ class PayOrderResponse(BaseModel):
 
     created_at: Optional[datetime] =                Field(default=None)
     expires_at: Optional[datetime] =                Field(default=None)
-    metadata: Optional[PayOrderMetadata]
+    metadata: Optional[PayOrderMetadata] =          Field(default_factory=dict)
 
 
 class CreatePaymentRequest(BaseModel):
