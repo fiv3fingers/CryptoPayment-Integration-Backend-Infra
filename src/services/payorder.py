@@ -46,6 +46,7 @@ class PayOrderService(BaseService[PayOrder]):
                 status_code=422,
                 detail="missing required field: destination_value_usd"
             )
+    
 
         # Create PayOrder
         pay_order = PayOrder(
@@ -53,8 +54,7 @@ class PayOrderService(BaseService[PayOrder]):
             mode=PayOrderMode.SALE,
             status=PayOrderStatus.PENDING,
             destination_value_usd=req.destination_value_usd,
-            metadata_=req.metadata.model_dump(),
-            # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
+            metadata_= req.metadata.model_dump() if req.metadata else {}
         )
 
         try:
@@ -68,14 +68,14 @@ class PayOrderService(BaseService[PayOrder]):
                 detail="Error creating PayOrder"
             ) from e
 
+        print(pay_order)
         return PayOrderResponse(
             id=pay_order.id,
             mode=pay_order.mode,
             status=pay_order.status,
             destination_value_usd=pay_order.destination_value_usd,
             metadata=pay_order.metadata_,
-            created_at=pay_order.created_at,
-            # expires_at=pay_order.expires_at,
+            created_at=pay_order.created_at
         )
 
 
@@ -84,7 +84,7 @@ class PayOrderService(BaseService[PayOrder]):
             organization_id=org_id,
             mode=PayOrderMode.DEPOSIT,
             status=PayOrderStatus.PENDING,
-            metadata_=req.metadata,
+            metadata_= req.metadata.model_dump() if req.metadata else {},
 
             destination_currency_id=CurrencyBase(address=req.destination_token_address, chain_id=req.destination_token_chain_id).id,
             destination_receiving_address=req.destination_receiving_address,
@@ -115,12 +115,10 @@ class PayOrderService(BaseService[PayOrder]):
             created_at=pay_order.created_at,
             expires_at=pay_order.expires_at,
 
-
             destination_currency=destination_currency,
             destination_amount=pay_order.destination_amount,
             destination_receiving_address=pay_order.destination_receiving_address,
             refund_address=pay_order.refund_address
-
         )
 
 
@@ -151,7 +149,7 @@ class PayOrderService(BaseService[PayOrder]):
         if req.refund_address:
             pay_order.refund_address = req.refund_address
         if req.metadata:
-            pay_order.metadata_ = req.metadata.model_dump()
+            pay_order.metadata_ = req.metadata
 
         try:
             self.db.commit()
@@ -202,7 +200,7 @@ class PayOrderService(BaseService[PayOrder]):
         if req.destination_value_usd:
             pay_order.destination_value_usd = req.destination_value_usd
         if req.metadata:
-            pay_order.metadata_ = req.metadata.model_dump()
+            pay_order.metadata_ = req.metadata
 
         try:
             self.db.commit()
