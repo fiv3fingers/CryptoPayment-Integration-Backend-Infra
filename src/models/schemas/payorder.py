@@ -60,22 +60,21 @@ class PayOrderResponse(BaseModel):
 
 class CreatePaymentRequest(BaseModel):
     token_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
-    token_chain_id: ChainId
-    refund_address: str
+    token_chain_id: ChainId = Field(examples=[ChainId.ETH])
+    refund_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
 
 
 class CreatePaymentResponse(BaseModel):
     id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
-    mode: PayOrderMode
-    status: PayOrderStatus
-    expires_at: datetime
-
+    mode: PayOrderMode = Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
+    status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
+    expires_at: datetime = Field(examples=["2021-09-01T00:00:00Z"])
 
     source_currency: Currency
-    source_amount: float
+    source_amount: float = Field(examples=[0.1])
     destination_currency: Optional[Currency] = Field(default=None)
-    destination_amount: Optional[float] = Field(default=None)
-    deposit_address: str
+    destination_amount: Optional[float] = Field(examples=[200.0], default=None)
+    deposit_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
 
 
 
