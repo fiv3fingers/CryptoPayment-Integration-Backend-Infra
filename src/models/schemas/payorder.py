@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from src.utils.currencies.types import Currency
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -9,19 +9,30 @@ from src.utils.types import ChainId
 from pydantic import BaseModel, Field
 
 
+class MetadataItems(BaseModel):
+    name: str = Field(examples=["t-shirt"], default=None)
+    description: Optional[str] = Field(examples=["A nice t-shirt"], default=None)
+    image: Optional[str] = Field(examples=["https://example.com/image.png"], default=None)
+    quantity: Optional[int] = Field(examples=[1], default=None)
+    unit_price: Optional[float] = Field(examples=[0.1], default=None)
+    currency: Optional[str] = Field(examples=["USD"], default=None)
+
+class PayOrderMetadata(BaseModel):
+    items: List[MetadataItems]
+
+
 class CreateSaleRequest(BaseModel):
-    metadata: Optional[dict] = Field(default_factory=dict)
-    destination_value_usd: Optional[float] = Field(examples=[250], default=None)
+    metadata: Optional[PayOrderMetadata]
+    destination_value_usd: float = Field(examples=[250], default=None)
 
 
 class CreateDepositRequest(BaseModel):
-    metadata: Optional[dict] = Field(default_factory=dict)
+    metadata: Optional[PayOrderMetadata]
     refund_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
-    destination_token_address: Optional[str] = Field(examples=["0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"], default=None)
-    destination_token_chain_id: Optional[ChainId] = Field(examples=[ChainId.ETH], default=None)
-    destination_amount: Optional[float] = Field(examples=[200], default=None)
-    destination_address: Optional[str] = Field(examples=["9zUcFmUcdMwgH84vKofyL9xzULXh9F7uviNSYWb81f7e"], default=None)
-
+    destination_token_address: str = Field(examples=["0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"], default=None)
+    destination_token_chain_id: ChainId = Field(examples=[ChainId.ETH], default=None)
+    destination_amount: float = Field(examples=[200], default=None)
+    destination_receiving_address: str = Field(examples=["9zUcFmUcdMwgH84vKofyL9xzULXh9F7uviNSYWb81f7e"], default=None)
 
 
 class UpdateSaleRequest(CreateSaleRequest):
@@ -46,16 +57,14 @@ class PayOrderResponse(BaseModel):
     destination_currency: Optional[Currency] =      Field(default=None)
     destination_amount: Optional[float] =           Field(examples=[0.1], default=None)
     destination_value_usd: Optional[float] =        Field(examples=[250], default=None)
-    destination_address: Optional[str] =            Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
+    destination_receiving_address: Optional[str] =            Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
     destination_transaction_hash: Optional[str] =   Field(default=None)
 
     refund_address: Optional[str] =                 Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
 
     created_at: Optional[datetime] =                Field(default=None)
     expires_at: Optional[datetime] =                Field(default=None)
-    metadata: dict =                                Field(default_factory=dict)
-
-
+    metadata: Optional[PayOrderMetadata]
 
 
 class CreatePaymentRequest(BaseModel):
@@ -75,17 +84,3 @@ class CreatePaymentResponse(BaseModel):
     destination_currency: Optional[Currency] = Field(default=None)
     destination_amount: Optional[float] = Field(examples=[200.0], default=None)
     deposit_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
