@@ -43,8 +43,8 @@ class PayOrderService(BaseService[PayOrder]):
         # must include value usd
         if not req.destination_value_usd:
             raise HTTPException(
-                status_code=400,
-                detail="destination_value_usd is required for sales"
+                status_code=422,
+                detail="missing required field: destination_value_usd"
             )
 
         # Create PayOrder
@@ -53,7 +53,7 @@ class PayOrderService(BaseService[PayOrder]):
             mode=PayOrderMode.SALE,
             status=PayOrderStatus.PENDING,
             destination_value_usd=req.destination_value_usd,
-            metadata_=req.metadata,
+            metadata_=req.metadata.model_dump(),
             # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
         )
 
@@ -87,7 +87,7 @@ class PayOrderService(BaseService[PayOrder]):
             metadata_=req.metadata,
 
             destination_currency_id=CurrencyBase(address=req.destination_token_address, chain_id=req.destination_token_chain_id).id,
-            destination_address=req.destination_address,
+            destination_receiving_address=req.destination_receiving_address,
             destination_amount=req.destination_amount,
             refund_address=req.refund_address,
             # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
@@ -118,7 +118,7 @@ class PayOrderService(BaseService[PayOrder]):
 
             destination_currency=destination_currency,
             destination_amount=pay_order.destination_amount,
-            destination_address=pay_order.destination_address,
+            destination_receiving_address=pay_order.destination_receiving_address,
             refund_address=pay_order.refund_address
 
         )
@@ -146,12 +146,12 @@ class PayOrderService(BaseService[PayOrder]):
             pay_order.destination_currency_id = destination_currency.id
         if req.destination_amount:
             pay_order.destination_amount = req.destination_amount
-        if req.destination_address:
-            pay_order.destination_address = req.destination_address
+        if req.destination_receiving_address:
+            pay_order.destination_receiving_address = req.destination_receiving_address
         if req.refund_address:
             pay_order.refund_address = req.refund_address
         if req.metadata:
-            pay_order.metadata_ = req.metadata
+            pay_order.metadata_ = req.metadata.model_dump()
 
         try:
             self.db.commit()
@@ -180,7 +180,7 @@ class PayOrderService(BaseService[PayOrder]):
             source_currency=source_currency,
 
             destination_amount=pay_order.destination_amount,
-            destination_address=pay_order.destination_address,
+            destination_receiving_address=pay_order.destination_receiving_address,
             refund_address=pay_order.refund_address
         )
 
@@ -202,7 +202,7 @@ class PayOrderService(BaseService[PayOrder]):
         if req.destination_value_usd:
             pay_order.destination_value_usd = req.destination_value_usd
         if req.metadata:
-            pay_order.metadata_ = req.metadata
+            pay_order.metadata_ = req.metadata.model_dump()
 
         try:
             self.db.commit()
@@ -242,8 +242,8 @@ class PayOrderService(BaseService[PayOrder]):
         # Verify required fields
         if not pay_order.destination_amount:
             raise HTTPException( status_code=400, detail="destination_amount is required for deposits")
-        if not pay_order.destination_address:
-            raise HTTPException( status_code=400, detail="destination_address is required for deposits")
+        if not pay_order.destination_receiving_address:
+            raise HTTPException( status_code=400, detail="destination_receiving_address is required for deposits")
         if not pay_order.destination_currency_id:
             raise HTTPException( status_code=400, detail="destination_currency_id is required for deposits")
 
@@ -271,7 +271,7 @@ class PayOrderService(BaseService[PayOrder]):
         # Create ChangeNow exchange
         cn = ChangeNowService()
         exch = await cn.exchange(
-            address=pay_order.destination_address,
+            address=pay_order.destination_receiving_address,
             refund_address=refund_address,
             amount=quote.in_amount,
             currency_in=quote.in_currency,
@@ -371,7 +371,7 @@ class PayOrderService(BaseService[PayOrder]):
 
         pay_order.destination_currency_id = quote.out_currency.id
         pay_order.destination_amount = quote.out_amount
-        pay_order.destination_address = settlement_currency.address
+        pay_order.destination_receiving_address = settlement_currency.address
 
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
