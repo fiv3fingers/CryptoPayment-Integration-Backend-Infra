@@ -25,7 +25,7 @@ from datetime import datetime
 
 
 
-router = APIRouter(prefix="/quotes", tags=["quotes"])
+router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
 @router.post("/usd", response_model=QuoteResponse)
 async def get_quote_usd(
@@ -45,7 +45,6 @@ async def get_quote_usd(
     print(f"all_user_currencies: len={len(all_user_currencies)}")
     user_currencies = [c for c in all_user_currencies if await cn_service.is_supported(c)]
     print(f"user_currencies (cn_supported): len={len(user_currencies)}")
-
 
 
     quote_service = QuoteService()

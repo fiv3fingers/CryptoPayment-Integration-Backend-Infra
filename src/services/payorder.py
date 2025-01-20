@@ -124,8 +124,8 @@ class PayOrderService(BaseService[PayOrder]):
         )
 
 
-    async def update_deposit(self, req: UpdateDepositRequest):
-        pay_order = self.db.query(PayOrder).get(req.id)
+    async def update_deposit(self, order_id: str, req: UpdateDepositRequest):
+        pay_order = self.db.query(PayOrder).get(order_id)
 
         if pay_order is None:
             raise HTTPException( status_code=404, detail="Order not found")
@@ -161,7 +161,7 @@ class PayOrderService(BaseService[PayOrder]):
             raise HTTPException(
                 status_code=500,
                 detail="Error updating PayOrder"
-            )
+            ) from e
 
         source_currency = None
         if pay_order.source_currency_id:
@@ -185,8 +185,8 @@ class PayOrderService(BaseService[PayOrder]):
         )
 
 
-    async def update_sale(self, req: UpdateSaleRequest):
-        pay_order = self.db.query(PayOrder).get(req.id)
+    async def update_sale(self, order_id: str, req: UpdateSaleRequest):
+        pay_order = self.db.query(PayOrder).get(order_id)
 
         if pay_order is None:
             raise HTTPException( status_code=404, detail="Order not found")
@@ -212,7 +212,7 @@ class PayOrderService(BaseService[PayOrder]):
             raise HTTPException(
                 status_code=500,
                 detail="Error updating PayOrder"
-            )
+            ) from e
 
 
         return PayOrderResponse(
@@ -290,8 +290,6 @@ class PayOrderService(BaseService[PayOrder]):
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
         pay_order.source_deposit_address = exch.deposit_address
-
-
 
 
         try:

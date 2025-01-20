@@ -25,12 +25,11 @@ class CreateDepositRequest(BaseModel):
 
 
 class UpdateSaleRequest(CreateSaleRequest):
-    id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
+    pass
+    
 
 class UpdateDepositRequest(CreateDepositRequest):
-    id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
-
-
+    pass
 
 
 class PayOrderResponse(BaseModel):
@@ -60,7 +59,6 @@ class PayOrderResponse(BaseModel):
 
 
 class CreatePaymentRequest(BaseModel):
-    id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
     token_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
     token_chain_id: ChainId
     refund_address: str
