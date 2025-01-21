@@ -74,7 +74,7 @@ class PayOrder(Base):
     # Output payment details
     destination_currency_id = Column(String, nullable=True)
     destination_amount = Column(BigInteger, nullable=True)
-    destination_address = Column(String, nullable=True)
+    destination_receiving_address = Column(String, nullable=True)
     destination_value_usd = Column(Float, nullable=True)
     destination_transaction_hash = Column(String, nullable=True)
 

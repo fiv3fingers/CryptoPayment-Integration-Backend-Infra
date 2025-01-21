@@ -1,6 +1,6 @@
 # routes/payorder.py
 from typing import List, Union
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from src.database.dependencies import get_db, get_current_organization, validate_authorization_header
 from src.models.schemas.payorder import (
@@ -101,16 +101,21 @@ async def create_sale_payment_details(
 
 
 
-
 @router.get("/{order_id}", response_model=Union[DepositResponse, SaleResponse])
 async def get_order(
     order_id: str,
     db: Session = Depends(get_db),
-    org: Organization = Depends(get_current_organization)
+    _: Organization = Depends(get_current_organization)
 ):
     """ API Route for get a payorder by id """
+
     pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(org.id, order_id)
+    pay_order = await pay_order_service.get(order_id)
+    if pay_order is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found"
+        )
     return pay_order
 
 
