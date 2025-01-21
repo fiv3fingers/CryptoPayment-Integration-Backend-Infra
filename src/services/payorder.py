@@ -21,18 +21,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class PayOrderService(BaseService[PayOrder]):
-    async def get(self, org_id: str, order_id: str):
+    async def get(self, order_id: str):
         """Get a pay order by id"""
-        pay_order = self.db.query(PayOrder).where(
-            PayOrder.id == order_id, PayOrder.organization_id == org_id
-            ).first()
-        if pay_order is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Order not found"
-            )
-
-        return pay_order
+        return self.db.query(PayOrder).where(PayOrder.id == order_id).first()
+    
   
     async def get_all(self, org_id: str):
         """Get all pay orders for an organization"""
@@ -200,7 +192,7 @@ class PayOrderService(BaseService[PayOrder]):
         if req.destination_value_usd:
             pay_order.destination_value_usd = req.destination_value_usd
         if req.metadata:
-            pay_order.metadata_ = req.metadata
+            pay_order.metadata_ = req.metadata.model_dump()
 
         try:
             self.db.commit()
