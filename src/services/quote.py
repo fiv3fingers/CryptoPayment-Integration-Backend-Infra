@@ -1,6 +1,6 @@
 from typing import List, Union
 
-from src.utils.currencies.types import CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
 
 from .changenow import ChangeNowService, ExchangeType
@@ -57,12 +57,19 @@ class QuoteService():
 
                     if _quotes:
                         best_quote = min(_quotes, key=lambda x: x["value_usd_in"])
+                        in_currency: Currency = best_quote["from_currency"]
+                        in_currency.ui_amount = best_quote["amount_in"]
+                        in_currency.amount = in_currency.ui_amount_to_amount(in_currency.ui_amount)
+
+                        out_currency: Currency = best_quote["to_currency"]
+                        out_currency.ui_amount = best_quote["amount_out"]
+                        out_currency.amount = out_currency.ui_amount_to_amount(out_currency.ui_amount)
+
+
                         best_quote = CurrencyQuote(
-                            in_currency=best_quote["from_currency"],
-                            in_amount=best_quote["amount_in"],
-                            out_amount=best_quote["amount_out"],
                             value_usd=best_quote["value_usd_in"],
-                            out_currency=best_quote["to_currency"]
+                            in_currency=in_currency,
+                            out_currency=out_currency,
                         )
                         quotes.append(best_quote)
 
@@ -85,6 +92,17 @@ class QuoteService():
             from_currencies = await cg.price(currencies=from_currencies)
             to_currency = await cg.price(currencies=[to_currency])
 
+            print(f"\t\tAMOUNT_OUT: {amount_out}")
+            print("~~~ FROM CURRENCIES ~~~")
+            for c in from_currencies:
+                for k, v in c.model_dump().items():
+                    print(f"{k}: {v}")
+
+            print("~~~ TO CURRENCY ~~~")
+            for c in to_currency:
+                for k, v in c.model_dump().items():
+                    print(f"{k}: {v}")
+
             async with ChangeNowService() as cn:
                 for from_currency in from_currencies:
                     try:
@@ -93,14 +111,29 @@ class QuoteService():
                             currency_out=to_currency[0],
                             amount=amount_out,
                             exchange_type=ExchangeType.REVERSE)
+
+                        print(f"Estimate: {est_currency_in_amount}")
+
                         est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
+                        print(f"Estimate USD: {est_currency_in_value_usd}")
+
+                        from_currency.ui_amount = est_currency_in_amount
+                        from_currency.amount = from_currency.ui_amount_to_amount(from_currency.ui_amount)
+
+                        out_currency: Currency = to_currency[0]
+                        out_currency.ui_amount = amount_out
+                        out_currency.amount = out_currency.ui_amount_to_amount(out_currency.ui_amount)
+
+
                         quotes.append(CurrencyQuote(
-                            in_currency=from_currency,
-                            in_amount=est_currency_in_amount,
-                            out_amount=amount_out,
                             value_usd=est_currency_in_value_usd,
-                            out_currency=to_currency[0]
+                            in_currency=from_currency,
+                            out_currency=out_currency,
                         ))
+                        print("~~~ QUOTE ~~~")
+                        for q in quotes:
+                            for k, v in q.model_dump().items():
+                                print(f"{k}: {v}")
                     except Exception as e:
                         logger.error(f"Error estimating {from_currency.id} to {to_currency[0].id}: {str(e)}")
                         continue

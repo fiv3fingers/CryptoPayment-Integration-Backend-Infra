@@ -32,4 +32,3 @@ def validate_authorization_header(auth_header: str = Depends(authorization_heade
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Signature")
     
     return organization
-
