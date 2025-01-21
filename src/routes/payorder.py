@@ -6,6 +6,10 @@ from src.database.dependencies import get_db, get_current_organization, validate
 from src.models.schemas.payorder import (
     CreateDepositRequest,
     CreateSaleRequest,
+    QuoteDepositRequest,
+    QuoteDepositResponse,
+    QuoteSaleRequest,
+    QuoteSaleResponse,
     UpdateDepositRequest,
     UpdateSaleRequest,
     DepositResponse,
@@ -98,6 +102,36 @@ async def create_sale_payment_details(
     resp = await pay_order_service.pay_sale(order_id, req)
 
     return resp
+
+@router.post("/deposit/{order_id}/quote", response_model=QuoteDepositResponse)
+async def quote_deposit(
+    order_id: str,
+    req: QuoteDepositRequest,
+    _: Organization = Depends(get_current_organization),
+    db: Session = Depends(get_db)
+):
+    """ API Route for creating the final quote including deposit details to submit the transaction """
+
+    pay_order_service = PayOrderService(db)
+    resp = await pay_order_service.quote_deposit(order_id, req)
+
+    return resp
+
+@router.post("/sale/{order_id}/quote", response_model=QuoteSaleResponse)
+async def quote_sale(
+    order_id: str,
+    req: QuoteSaleRequest,
+    _: Organization = Depends(validate_authorization_header),
+    db: Session = Depends(get_db)
+):
+    """ API Route for creating the final quote including deposit details to submit the transaction """
+    
+    pay_order_service = PayOrderService(db)
+    resp = await pay_order_service.quote_sale(order_id, req)
+
+    return resp
+
+
 
 
 
