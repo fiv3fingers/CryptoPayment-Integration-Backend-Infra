@@ -21,18 +21,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class PayOrderService(BaseService[PayOrder]):
-    async def get(self, org_id: str, order_id: str):
+    async def get(self, order_id: str):
         """Get a pay order by id"""
-        pay_order = self.db.query(PayOrder).where(
-            PayOrder.id == order_id, PayOrder.organization_id == org_id
-            ).first()
-        if pay_order is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Order not found"
-            )
-
-        return pay_order
+        return self.db.query(PayOrder).where(PayOrder.id == order_id).first()
+    
   
     async def get_all(self, org_id: str):
         """Get all pay orders for an organization"""
@@ -63,7 +55,11 @@ class PayOrderService(BaseService[PayOrder]):
         """
         # must include value usd
         if not req.destination_value_usd:
-            raise HTTPException( status_code=400, detail="destination_value_usd is required for sales")
+            raise HTTPException(
+                status_code=422,
+                detail="missing required field: destination_value_usd"
+            )
+    
 
         # Create PayOrder
         pay_order = PayOrder(
@@ -72,7 +68,7 @@ class PayOrderService(BaseService[PayOrder]):
             status=PayOrderStatus.PENDING,
 
             destination_value_usd=req.destination_value_usd,
-            metadata_=req.metadata,
+            metadata_= req.metadata.model_dump() if req.metadata else {}
         )
 
         try:
@@ -259,8 +255,6 @@ class PayOrderService(BaseService[PayOrder]):
             amount=pay_order.source_amount,
             ui_amount=exch.from_amount
         )
-
-
 
 
 

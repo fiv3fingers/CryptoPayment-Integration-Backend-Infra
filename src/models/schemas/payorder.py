@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from src.utils.currencies.types import Currency, CurrencyBase
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -9,13 +9,28 @@ from src.utils.types import ChainId
 from pydantic import BaseModel, Field
 
 
+class MetadataItems(BaseModel):
+    name: str = Field(examples=["t-shirt"], default=None)
+    description: Optional[str] = Field(examples=["A nice t-shirt"], default=None)
+    image: Optional[str] = Field(examples=["https://example.com/image.png"], default=None)
+    quantity: Optional[int] = Field(examples=[1], default=None)
+    unit_price: Optional[float] = Field(examples=[0.1], default=None)
+    currency: Optional[str] = Field(examples=["USD"], default=None)
+
+
+class PayOrderMetadata(BaseModel):
+    items: Optional[List[MetadataItems]] = Field(default_factory=list)
+
+
 # CREATE & UPDATE SALE
 class CreateSaleRequest(BaseModel):
-    metadata: dict 
-    destination_value_usd: float
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
+    destination_value_usd: float = Field(examples=[250], default=None)
 
-class UpdateSaleRequest(CreateSaleRequest):
-    pass
+
+class UpdateSaleRequest(BaseModel):
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
+    destination_value_usd: Optional[float] = Field(examples=[250], default=None)
 
 class SaleResponse(BaseModel):
     id: str
@@ -36,7 +51,7 @@ class QuoteSaleResponse(BaseModel):
     destination_ui_amount: float
 
 
-# PAY
+# PAYMENT DETAILS
 class PaySaleRequest(BaseModel):
     source_currency: CurrencyBase
     refund_address: str
@@ -55,21 +70,22 @@ class PaySaleResponse(BaseModel):
 
 
 
-
 # CREATE & UPDATE DEPOSIT
 class CreateDepositRequest(BaseModel):
-    metadata: Optional[dict] = Field(default_factory=dict)
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
     destination_currency: CurrencyBase
+
 
 class UpdateDepositRequest(CreateDepositRequest):
     pass
+
 
 class DepositResponse(BaseModel):
     id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
     mode: PayOrderMode = Field(examples=[PayOrderMode.DEPOSIT], title="PayOrder mode")
     status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
 
-    metadata: dict = Field(default_factory=dict)
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
     destination_currency: Currency
 
 
@@ -85,7 +101,7 @@ class QuoteDepositResponse(BaseModel):
     destination_ui_amount: float
 
 
-# PAY
+# PAYMENT DETAILS
 class PayDepositRequest(BaseModel):
     source_currency: CurrencyBase
     destination_amount: float
@@ -109,3 +125,45 @@ class PayDepositResponse(BaseModel):
     destination_ui_amount: float
     destination_address: str
 
+
+# class PayOrderResponse(BaseModel):
+#     id: str =                                       Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
+#     mode: PayOrderMode =                            Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
+#     status: PayOrderStatus =                        Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
+
+#     source_currency: Optional[Currency] =           Field(default=None)
+#     source_amount: Optional[float] =                Field(examples=[0.1], default=None)
+#     source_value_usd: Optional[float] =             Field(examples=[250], default=None)
+#     source_address: Optional[str] =                 Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
+#     source_transaction_hash: Optional[str] =        Field(default=None)
+
+#     destination_currency: Optional[Currency] =      Field(default=None)
+#     destination_amount: Optional[float] =           Field(examples=[0.1], default=None)
+#     destination_value_usd: Optional[float] =        Field(examples=[250], default=None)
+#     destination_receiving_address: Optional[str] =            Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
+#     destination_transaction_hash: Optional[str] =   Field(default=None)
+
+#     refund_address: Optional[str] =                 Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
+
+#     created_at: Optional[datetime] =                Field(default=None)
+#     expires_at: Optional[datetime] =                Field(default=None)
+#     metadata: Optional[PayOrderMetadata] =          Field(default_factory=dict)
+
+
+# class CreatePaymentRequest(BaseModel):
+#     token_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
+#     token_chain_id: ChainId = Field(examples=[ChainId.ETH])
+#     refund_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
+
+
+# class CreatePaymentResponse(BaseModel):
+#     id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
+#     mode: PayOrderMode = Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
+#     status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
+#     expires_at: datetime = Field(examples=["2021-09-01T00:00:00Z"])
+
+#     source_currency: Currency
+#     source_amount: float = Field(examples=[0.1])
+#     destination_currency: Optional[Currency] = Field(default=None)
+#     destination_amount: Optional[float] = Field(examples=[200.0], default=None)
+#     deposit_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])

@@ -1,20 +1,20 @@
 from enum import Enum
 
-class RoutingServiceType(int, Enum):
-    OTHER = 0
-    CHANGENOW = 1
-    CCTP = 3
-    DIRECT_TRANSFER = 4
+class RoutingServiceType(Enum):
+    OTHER = "OTHER"
+    CHANGENOW = "CHANGENOW"
+    CCTP = "CCTP"
+    DIRECT_TRANSFER = "DIRECT_TRANSFER"
 
 class PayOrderStatus(Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    AWAITING_PAYMENT = "awaiting_payment"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    AWAITING_PAYMENT = "AWAITING_PAYMENT"
+    FAILED = "FAILED"
 
 class PayOrderMode(Enum):
-    SALE = "sale"
-    DEPOSIT = "deposit"
+    SALE = "SALE"
+    DEPOSIT = "DEPOSIT"
 
 
 

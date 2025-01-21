@@ -1,7 +1,5 @@
 from enum import Enum
-
-from pydantic import BaseModel
-
+from typing import Dict
 
 class ChainId(int, Enum):
     ETH = 1
@@ -43,7 +41,7 @@ class ServiceType(str, Enum):
     CHANGENOW = "CHANGENOW",
 
 
-class AuthHeaderType(BaseModel):
-    apikey: str
+class AuthHeaderType(Dict):
+    APIKey: str
     signature: str
     timestamp: str
