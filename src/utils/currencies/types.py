@@ -170,17 +170,16 @@ class Currency(CurrencyBase):
         default=None,
         description="Price in USD"
     )
-    # TODO: Add these fields
-    # amount: Optional[int] = Field(
-    #     examples=[1000000000000000000],
-    #     default=None,
-    #     description="Amount in smallest unit"
-    # )
-    # ui_amount: Optional[float] = Field(
-    #     examples=[1.0],
-    #     default=None,
-    #     description="Amount in user-friendly unit"
-    # )
+    amount: Optional[int] = Field(
+        examples=[1000000000000000000],
+        default=None,
+        description="Amount in smallest unit"
+    )
+    ui_amount: Optional[float] = Field(
+        examples=[1.0],
+        default=None,
+        description="Amount in user-friendly unit"
+    )
 
     def __str__(self) -> str:
         return f"{self.ticker} ({self.name})"

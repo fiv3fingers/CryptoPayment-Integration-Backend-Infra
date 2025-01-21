@@ -9,8 +9,6 @@ from src.utils.currencies.types import Currency
 
 class CurrencyQuote(BaseModel):
     value_usd: float
-    in_amount: float
-    out_amount: float
     in_currency: Currency
     out_currency: Currency
 

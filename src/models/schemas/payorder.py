@@ -10,12 +10,12 @@ from pydantic import BaseModel, Field
 
 
 class MetadataItems(BaseModel):
-    name: str = Field(examples=["t-shirt"], default=None)
-    description: Optional[str] = Field(examples=["A nice t-shirt"], default=None)
-    image: Optional[str] = Field(examples=["https://example.com/image.png"], default=None)
-    quantity: Optional[int] = Field(examples=[1], default=None)
-    unit_price: Optional[float] = Field(examples=[0.1], default=None)
-    currency: Optional[str] = Field(examples=["USD"], default=None)
+    name: str                       = Field(examples=["t-shirt"], default=None)
+    description: Optional[str]      = Field(examples=["A nice t-shirt"], default=None)
+    image: Optional[str]            = Field(examples=["https://example.com/image.png"], default=None)
+    quantity: Optional[int]         = Field(examples=[1], default=None)
+    unit_price: Optional[float]     = Field(examples=[0.1], default=None)
+    currency: Optional[str]         = Field(examples=["USD"], default=None)
 
 
 class PayOrderMetadata(BaseModel):
@@ -24,13 +24,13 @@ class PayOrderMetadata(BaseModel):
 
 # CREATE & UPDATE SALE
 class CreateSaleRequest(BaseModel):
-    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
-    destination_value_usd: float = Field(examples=[250], default=None)
+    metadata: Optional[PayOrderMetadata]    = Field(default_factory=PayOrderMetadata)
+    destination_value_usd: float            = Field(examples=[250], default=None)
 
 
 class UpdateSaleRequest(BaseModel):
-    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
-    destination_value_usd: Optional[float] = Field(examples=[250], default=None)
+    metadata: Optional[PayOrderMetadata]    = Field(default_factory=PayOrderMetadata)
+    destination_value_usd: Optional[float]  = Field(examples=[250], default=None)
 
 class SaleResponse(BaseModel):
     id: str
@@ -43,12 +43,11 @@ class SaleResponse(BaseModel):
 
 # QUOTE
 class QuoteSaleRequest(BaseModel):
-    source_currency: CurrencyBase
+    wallet_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
+    chain_id: ChainId = Field(examples=[ChainId.ETH])
 
 class QuoteSaleResponse(BaseModel):
-    source_currency: Currency
-    destination_currency: Currency
-    destination_ui_amount: float
+    source_currencies: List[Currency]
 
 
 # PAYMENT DETAILS
@@ -64,8 +63,8 @@ class PaySaleResponse(BaseModel):
 
     source_currency: Currency
     deposit_address: str
-    amount: int
-    ui_amount: float
+    #amount: int
+    #ui_amount: float
 
 
 
@@ -73,7 +72,11 @@ class PaySaleResponse(BaseModel):
 # CREATE & UPDATE DEPOSIT
 class CreateDepositRequest(BaseModel):
     metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
-    destination_currency: CurrencyBase
+    destination_currency: CurrencyBase = Field(
+        examples=[
+            dict(address="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", chain_id=ChainId.ETH)],
+        title="Destination currency"
+    )
 
 
 class UpdateDepositRequest(CreateDepositRequest):
@@ -86,26 +89,25 @@ class DepositResponse(BaseModel):
     status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
 
     metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
-    destination_currency: Currency
+    destination_currency: Currency 
 
 
 # QUOTE
 class QuoteDepositRequest(BaseModel):
-    source_currency: CurrencyBase
-    destination_ui_amount: float
+    wallet_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
+    chain_id: ChainId = Field(examples=[ChainId.ETH])
+    destination_ui_amount: float = Field(examples=[3.5])
 
 class QuoteDepositResponse(BaseModel):
-    source_currency: Currency
+    source_currencies: List[Currency]
     destination_currency: Currency
-    source_ui_amount: float
-    destination_ui_amount: float
 
 
 # PAYMENT DETAILS
 class PayDepositRequest(BaseModel):
     source_currency: CurrencyBase
     destination_amount: float
-    destination_address: str
+    destination_receiving_address: str
     refund_address: str
 
 class PayDepositResponse(BaseModel):
@@ -115,15 +117,11 @@ class PayDepositResponse(BaseModel):
     expires_at: datetime
 
     source_currency: Currency
-    source_deposit_amount: int
-    source_deposit_ui_amount: float
+    destination_currency: Currency
     deposit_address: str
     refund_address: str
 
-    destination_currency: Currency
-    destination_amount: int
-    destination_ui_amount: float
-    destination_address: str
+    destination_receiving_address: str
 
 
 # class PayOrderResponse(BaseModel):
