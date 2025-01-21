@@ -205,13 +205,17 @@ class CoinGeckoService:
             logger.error(f"Error fetching prices: {e}")
             raise
 
-    async def get_token_info(self, currency: Union[Currency, CurrencyBase]) -> Optional[Currency]:
+    async def get_token_info(self, currency: Union[Currency, CurrencyBase, str]) -> Optional[Currency]:
         """
         Get detailed information about a token.
         
         Args:
-            currency: Currency or CurrencyBase object
+            currency: Currency or CurrencyBase object or currency ID
         """
+        if isinstance(currency, str):
+            currency = CurrencyBase.from_id(currency)
+
+
         token_info = await self._get_token_info(currency.chain_id, currency.address)
 
         if token_info:

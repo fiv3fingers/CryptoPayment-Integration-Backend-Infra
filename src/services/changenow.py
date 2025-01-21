@@ -1,3 +1,4 @@
+
 from typing import Optional, List, Union
 import os
 import aiohttp
@@ -128,7 +129,11 @@ class ChangeNowService:
             self.session = aiohttp.ClientSession(headers=self.headers)
 
         try:
-            params = request.model_dump(by_alias=True, exclude_none=True)
+            #params = request.model_dump(by_alias=True, exclude_none=True)
+            params = request.to_api_params()
+            for key, value in params.items():
+                print(f"{key}: {value}")
+
             logger.debug(f"Creating estimate with params: {params}")
 
             async with self.session.get(
@@ -233,12 +238,9 @@ class ChangeNowService:
         try:
             cn_currency_in = await self._get_changenow_currency(currency_in)
             cn_currency_out = await self._get_changenow_currency(currency_out)
-            amount = float(f"{amount:.5f}")
 
-            logger.debug(f"Estimating {exchange_type} exchange:")
-            logger.debug(f"From: {currency_in.id} ({cn_currency_in.network})")
-            logger.debug(f"To: {currency_out.id} ({cn_currency_out.network})")
-            logger.debug(f"Amount: {amount}")
+            print(" ~~~ ESTIMATE (CN) ~~~")
+            print(f"amount: {amount}")
 
             if exchange_type == ExchangeType.DIRECT:
                 est = await self._create_estimate(EstimateRequest(

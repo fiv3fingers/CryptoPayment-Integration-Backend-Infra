@@ -1,11 +1,11 @@
 # services/payorder.py
 
 from src.models.enums import PayOrderStatus, PayOrderMode
-from src.models.schemas.payorder import CreateDepositRequest, CreatePaymentResponse, CreateSaleRequest, PayOrderResponse, UpdateDepositRequest, UpdateSaleRequest 
+from src.models.schemas.payorder import CreateDepositRequest, CreateSaleRequest, DepositResponse, PayDepositRequest, PayDepositResponse, PaySaleRequest, PaySaleResponse, SaleResponse, UpdateDepositRequest, UpdateSaleRequest 
 
 from src.models.database_models import Organization, SettlementCurrency, PayOrder
 from src.services.coingecko import CoinGeckoService
-from src.utils.currencies.types import CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.types import ChainId
 
 from .changenow import ChangeNowService
@@ -39,22 +39,40 @@ class PayOrderService(BaseService[PayOrder]):
         return self.db.query(PayOrder).where(PayOrder.organization_id == org_id).all()
 
 
-    async def create_sale(self, org_id: str, req: CreateSaleRequest):
+
+    #
+    #   SALE
+    #
+
+    async def create_sale(self, org_id: str, req: CreateSaleRequest) -> SaleResponse:
+        """
+        Create a sale order
+
+        org_id: str (Organization ID)
+        req: CreateSaleRequest
+            - metadata: dict
+            - destination_value_usd: float
+
+        Returns: SaleResponse
+            - id: str
+            - mode: PayOrderMode
+            - status: PayOrderStatus
+
+            - metadata: dict
+            - destination_value_usd: float
+        """
         # must include value usd
         if not req.destination_value_usd:
-            raise HTTPException(
-                status_code=400,
-                detail="destination_value_usd is required for sales"
-            )
+            raise HTTPException( status_code=400, detail="destination_value_usd is required for sales")
 
         # Create PayOrder
         pay_order = PayOrder(
             organization_id=org_id,
             mode=PayOrderMode.SALE,
             status=PayOrderStatus.PENDING,
+
             destination_value_usd=req.destination_value_usd,
             metadata_=req.metadata,
-            # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
         )
 
         try:
@@ -68,283 +86,121 @@ class PayOrderService(BaseService[PayOrder]):
                 detail="Error creating PayOrder"
             ) from e
 
-        return PayOrderResponse(
+        return SaleResponse(
             id=pay_order.id,
             mode=pay_order.mode,
             status=pay_order.status,
-            destination_value_usd=pay_order.destination_value_usd,
+
             metadata=pay_order.metadata_,
-            created_at=pay_order.created_at,
-            # expires_at=pay_order.expires_at,
+            destination_value_usd=pay_order.destination_value_usd
         )
 
+    async def update_sale(self, payorder_id: str, req: UpdateSaleRequest) -> SaleResponse:
+        """
+        Update a sale order
 
-    async def create_deposit(self, org_id: str, req: CreateDepositRequest):
-        pay_order = PayOrder(
-            organization_id=org_id,
-            mode=PayOrderMode.DEPOSIT,
-            status=PayOrderStatus.PENDING,
-            metadata_=req.metadata,
+        order_id: str
+        req: UpdateSaleRequest
+            - metadata: dict
+            - destination_value_usd: float
 
-            destination_currency_id=CurrencyBase(address=req.destination_token_address, chain_id=req.destination_token_chain_id).id,
-            destination_address=req.destination_address,
-            destination_amount=req.destination_amount,
-            refund_address=req.refund_address,
-            # expires_at=datetime.now(pytz.utc) + timedelta(minutes=15)
-        )
+        Returns: SaleResponse
+            - id: str
+            - mode: PayOrderMode
+            - status: PayOrderStatus
 
-        try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
-            raise HTTPException(
-                status_code=500,
-                detail="Error creating PayOrder"
-            ) from e
+            - metadata: dict
+            - destination_value_usd: float
 
-        async with CoinGeckoService() as cg:
-            destination_currency = await cg.get_token_info(CurrencyBase.from_id(pay_order.destination_currency_id))
+        """
 
-        return PayOrderResponse(
-            id=pay_order.id,
-            mode=pay_order.mode,
-            status=pay_order.status,
-            metadata=pay_order.metadata_,
-            created_at=pay_order.created_at,
-            expires_at=pay_order.expires_at,
-
-
-            destination_currency=destination_currency,
-            destination_amount=pay_order.destination_amount,
-            destination_address=pay_order.destination_address,
-            refund_address=pay_order.refund_address
-
-        )
-
-
-    async def update_deposit(self, req: UpdateDepositRequest):
-        pay_order = self.db.query(PayOrder).get(req.id)
-
-        if pay_order is None:
-            raise HTTPException( status_code=404, detail="Order not found")
-
-        if pay_order.mode != PayOrderMode.DEPOSIT:
-            raise HTTPException( status_code=400, detail="Order is not a deposit")
-
-        # Check if order is pending
-        if pay_order.status != PayOrderStatus.PENDING:
-            raise HTTPException( status_code=400, detail="Deposit status is not pending, cannot update")
-
-        # Update fields
-        if req.destination_token_chain_id:
-            destination_currency = CurrencyBase(
-                address=req.destination_token_address,
-                chain_id=req.destination_token_chain_id
-            )
-            pay_order.destination_currency_id = destination_currency.id
-        if req.destination_amount:
-            pay_order.destination_amount = req.destination_amount
-        if req.destination_address:
-            pay_order.destination_address = req.destination_address
-        if req.refund_address:
-            pay_order.refund_address = req.refund_address
-        if req.metadata:
-            pay_order.metadata_ = req.metadata
-
-        try:
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error updating PayOrder: %s", e)
-            raise HTTPException(
-                status_code=500,
-                detail="Error updating PayOrder"
-            )
-
-        source_currency = None
-        if pay_order.source_currency_id:
-            async with CoinGeckoService() as cg:
-                source_currency = await cg.get_token_info(CurrencyBase.from_id(pay_order.source_currency_id))
-
-
-        return PayOrderResponse(
-            id=pay_order.id,
-            mode=pay_order.mode,
-            status=pay_order.status,
-            metadata=pay_order.metadata_,
-            created_at=pay_order.created_at,
-            expires_at=pay_order.expires_at,
-
-            source_currency=source_currency,
-
-            destination_amount=pay_order.destination_amount,
-            destination_address=pay_order.destination_address,
-            refund_address=pay_order.refund_address
-        )
-
-
-    async def update_sale(self, req: UpdateSaleRequest):
-        pay_order = self.db.query(PayOrder).get(req.id)
-
-        if pay_order is None:
-            raise HTTPException( status_code=404, detail="Order not found")
-
-        if pay_order.mode != PayOrderMode.SALE:
-            raise HTTPException( status_code=400, detail="Order is not a sale")
-
-        # Check if order is pending
-        if pay_order.status != PayOrderStatus.PENDING:
-            raise HTTPException( status_code=400, detail="Sale status is not pending, cannot update")
-
-        # Update fields
-        if req.destination_value_usd:
-            pay_order.destination_value_usd = req.destination_value_usd
-        if req.metadata:
-            pay_order.metadata_ = req.metadata
-
-        try:
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error updating PayOrder: %s", e)
-            raise HTTPException(
-                status_code=500,
-                detail="Error updating PayOrder"
-            )
-
-
-        return PayOrderResponse(
-            id=pay_order.id,
-            mode=pay_order.mode,
-            status=pay_order.status,
-            metadata=pay_order.metadata_,
-            created_at=pay_order.created_at,
-            expires_at=pay_order.expires_at,
-            destination_value_usd=pay_order.destination_value_usd,
-        )
-
-
-    async def pay_deposit(self, payorder_id: str, source_token_address: str, source_chain_id: ChainId, refund_address: str) -> CreatePaymentResponse:
-        """ Create a payment for a deposit """
-
+        # Fetch payorder
         pay_order = self.db.query(PayOrder).get(payorder_id)
         if pay_order is None:
             raise HTTPException( status_code=404, detail="Order not found")
 
-        # Check if order is pending
+        # Check if payorder is a sale
+        if pay_order.mode != PayOrderMode.SALE:
+            raise HTTPException( status_code=400, detail="Order is not a sale")
+
+        # Check if the sale is pending
         if pay_order.status != PayOrderStatus.PENDING:
-            raise HTTPException( status_code=400, detail="Deposit status is not pending, cannot update")
+            raise HTTPException( status_code=400, detail="Sale status is not pending, cannot update")
 
 
-
-        # Verify required fields
-        if not pay_order.destination_amount:
-            raise HTTPException( status_code=400, detail="destination_amount is required for deposits")
-        if not pay_order.destination_address:
-            raise HTTPException( status_code=400, detail="destination_address is required for deposits")
-        if not pay_order.destination_currency_id:
-            raise HTTPException( status_code=400, detail="destination_currency_id is required for deposits")
-
-
-        # Build currency objects
-        source_currency = CurrencyBase(address=source_token_address, chain_id=source_chain_id)
-        destination_currency = CurrencyBase.from_id(pay_order.destination_currency_id)
-
-
-        # Get quote (Later on through different services)
-        quote_service = QuoteService()
-        quotes = await quote_service._get_quote_currency_out(
-            from_currencies=[source_currency],
-            to_currency=destination_currency,
-            amount_out=pay_order.destination_amount
-        )
-
-        quote = min(quotes, key=lambda x: x.value_usd)
-
-        print("~~~ QUOTE ~~~")
-        for (k, v) in quote.model_dump().items():
-            print(f"{k}: {v}")
-
-
-        # Create ChangeNow exchange
-        cn = ChangeNowService()
-        exch = await cn.exchange(
-            address=pay_order.destination_address,
-            refund_address=refund_address,
-            amount=quote.in_amount,
-            currency_in=quote.in_currency,
-            currency_out=quote.out_currency
-        )
-
-        print("~~~ EXCHANGE ~~~")
-        for (k, v) in exch.model_dump().items():
-            print(f"{k}: {v}")
-
-        # Update PayOrder
-        pay_order.source_amount = exch.from_amount
-        pay_order.source_deposit_address = exch.deposit_address
-        pay_order.source_currency_id = source_currency.id
-        pay_order.refund_address = refund_address
-        pay_order.status = PayOrderStatus.AWAITING_PAYMENT
-        pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
-        pay_order.source_deposit_address = exch.deposit_address
-
-
+        # Update fields
+        pay_order.destination_value_usd = req.destination_value_usd
+        pay_order.metadata_ = req.metadata
 
 
         try:
-            self.db.add(pay_order)
             self.db.commit()
             self.db.refresh(pay_order)
         except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
+            logger.error("Error updating PayOrder: %s", e)
             raise HTTPException(
                 status_code=500,
-                detail="Error creating PayOrder"
-            ) from e
+                detail="Error updating PayOrder"
+            )
 
-        return CreatePaymentResponse(
+
+        return SaleResponse(
             id=pay_order.id,
             mode=pay_order.mode,
             status=pay_order.status,
-            expires_at=pay_order.expires_at,
-            source_currency=quote.in_currency,
-            source_amount=pay_order.source_amount,
-            destination_currency=quote.out_currency,
-            destination_amount=pay_order.destination_amount,
-            deposit_address=pay_order.source_deposit_address
+            metadata=pay_order.metadata_,
+            destination_value_usd=pay_order.destination_value_usd,
         )
 
+    async def pay_sale(self, payorder_id: str, req: PaySaleRequest) -> PaySaleResponse:
+        """
+        Create payment details for a sale order
 
-    async def pay_sale(self, payorder_id: str, source_token_address: str, source_chain_id: ChainId, refund_address: str) -> CreatePaymentResponse:
-        """ Create a payment for a sale """
+        payorder_id: str
+        req: PaySaleRequest
+            - source_currency: CurrencyBase
+            - refund_address: str
+
+        Returns: PaySaleResponse
+            - id: str
+            - mode: PayOrderMode
+            - status: PayOrderStatus
+            - expires_at: datetime
+
+            - source_currency: Currency
+            - deposit_address: str
+            - amount: int
+            - ui_amount: float
+        """
 
         # Find the pay order
         pay_order = self.db.query(PayOrder).get(payorder_id)
         if pay_order is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Order not found"
-            )
+            raise HTTPException( status_code=404, detail="Order not found")
+
+        # Check if payorder is a sale
+        if pay_order.mode != PayOrderMode.SALE:
+            raise HTTPException( status_code=400, detail="Order is not a sale")
+
+        # Check if payorder status is pending
+        if pay_order.status != PayOrderStatus.PENDING:
+            raise HTTPException( status_code=400, detail="Sale status is not pending, cannot create payment")
+
 
         org = self.db.query(Organization).get(pay_order.organization_id)
         if org is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Organization not found"
-            )
+            raise HTTPException( status_code=404, detail="Organization not found")
 
-        source_currency = CurrencyBase(
-            address=source_token_address,
-            chain_id=source_chain_id
-        )
+
+        async with CoinGeckoService() as cg:
+            source_currency = await cg.get_token_info(req.source_currency)
+        if not source_currency:
+            raise HTTPException( status_code=400, detail="Invalid source_currency")
 
         # Organization settlement currencies
         settlement_currencies = [SettlementCurrency.from_dict(c) for c in org.settlement_currencies]
 
-        # Find optimal rdestinatione
+        # Find optimal settlement currency to route payment
         quote_service = QuoteService()
         quotes = await quote_service._get_quote_value_usd(
             from_currencies=[source_currency],
@@ -356,28 +212,28 @@ class PayOrderService(BaseService[PayOrder]):
         settlement_currency = next(c for c in settlement_currencies if c.currency_id == quote.out_currency.id)
 
         # Create ChangeNow exchange
-        cn = ChangeNowService()
-        exch = await cn.exchange(
-            address=settlement_currency.address,
-            refund_address=refund_address,
-            amount=quote.in_amount,
-            currency_in=quote.in_currency,
-            currency_out=quote.out_currency
-        )
+        async with ChangeNowService() as cn:
+            exch = await cn.exchange(
+                address=settlement_currency.address,
+                refund_address=req.refund_address,
+                amount=quote.in_amount,
+                currency_in=quote.in_currency,
+                currency_out=quote.out_currency
+            )
 
         # Update PayOrder
         pay_order.source_value_usd = quote.value_usd
-        pay_order.source_amount = exch.from_amount
+        pay_order.source_amount = source_currency.ui_amount_to_amount(exch.from_amount)
         pay_order.source_currency_id = source_currency.id
         pay_order.source_deposit_address = exch.deposit_address
 
         pay_order.destination_currency_id = quote.out_currency.id
-        pay_order.destination_amount = quote.out_amount
+        pay_order.destination_amount = quote.out_currency.ui_amount_to_amount(quote.out_amount),
         pay_order.destination_address = settlement_currency.address
 
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
-        pay_order.refund_address = refund_address
+        pay_order.refund_address = req.refund_address
 
         try:
             self.db.commit()
@@ -392,36 +248,257 @@ class PayOrderService(BaseService[PayOrder]):
         #return pay_order
         
 
-        return CreatePaymentResponse(
+        return PaySaleResponse(
             id=pay_order.id,
             mode=pay_order.mode,
             status=pay_order.status,
             expires_at=pay_order.expires_at,
-            source_currency=quote.in_currency,
-            source_amount=pay_order.source_amount,
-            #destination_currency=quote.out_currency,
-            #destination_amount=pay_order.destination_amount,
-            deposit_address=pay_order.source_deposit_address
+
+            source_currency=source_currency,
+            deposit_address=pay_order.source_deposit_address,
+            amount=pay_order.source_amount,
+            ui_amount=exch.from_amount
         )
 
 
-    async def pay(self, payorder_id: str, source_token_address: str, source_chain_id: ChainId, refund_address: str) -> CreatePaymentResponse:
-        """Create a payment for a pay order"""
+
+
+
+
+
+    #
+    #   DEPOSIT
+    #
+
+
+
+    async def create_deposit(self, org_id: str, req: CreateDepositRequest) -> DepositResponse:
+        """
+        Create a deposit order
+
+        org_id: str (Organization ID)
+        req: CreateDepositRequest
+            - metadata: dict
+            - destination_currency: CurrencyBase
+
+
+        Returns: DepositResponse
+            - id: str
+            - mode: PayOrderMode
+            - status: PayOrderStatus
+
+            - metadata: dict
+            - destination_currency: Currency
+        """
+
+        # fetch destination currency info
+        async with CoinGeckoService() as cg:
+            destination_currency = await cg.get_token_info(req.destination_currency)
+
+        if not destination_currency:
+            raise HTTPException( status_code=400, detail="Invalid destination_currency")
+
+        # Create PayOrder
+        pay_order = PayOrder(
+            organization_id=org_id,
+            mode=PayOrderMode.DEPOSIT,
+            status=PayOrderStatus.PENDING,
+            metadata_=req.metadata,
+
+            destination_currency_id=destination_currency.id,
+        )
+
+        try:
+            self.db.add(pay_order)
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error("Error creating PayOrder: %s", e)
+            raise HTTPException( status_code=500, detail="Error creating PayOrder" ) from e
+
+        return DepositResponse(
+            id=pay_order.id,
+            mode=pay_order.mode,
+            status=pay_order.status,
+            metadata=pay_order.metadata_,
+            destination_currency=destination_currency
+        )
+
+
+
+    async def update_deposit(self, payorder_id: str, req: UpdateDepositRequest) -> DepositResponse:
+        """
+        Update a deposit order
+
+        order_id: str
+        req: UpdateDepositRequest
+            - metadata: dict
+            - destination_currency: CurrencyBase
+
+        Returns: DepositResponse
+            - id: str
+            - mode: PayOrderMode
+            - status: PayOrderStatus
+
+            - metadata: dict
+            - destination_currency: Currency
+
+        """
+
+        # Fetch payorder
+        pay_order = self.db.query(PayOrder).get(payorder_id)
+
+        # Check if order exists
+        if pay_order is None:
+            raise HTTPException( status_code=404, detail="Deposit order not found")
+
+        # Check if payorder is a deposit
+        if pay_order.mode != PayOrderMode.DEPOSIT:
+            raise HTTPException( status_code=400, detail="Order is not a deposit")
+
+        # Check if payorder status is pending
+        if pay_order.status != PayOrderStatus.PENDING:
+            raise HTTPException( status_code=400, detail="Deposit status is not pending, cannot update")
+
+
+        # Update fields
+        async with CoinGeckoService() as cg:
+            destination_currency = await cg.get_token_info(req.destination_currency)
+        if not destination_currency:
+            raise HTTPException( status_code=400, detail="Invalid destination_currency")
+
+        pay_order.destination_currency_id = destination_currency.id
+        pay_order.metadata_ = req.metadata
+
+        try:
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error("Error updating PayOrder: %s", e)
+            raise HTTPException(
+                status_code=500,
+                detail="Error updating PayOrder"
+            )
+
+        return DepositResponse(
+            id=pay_order.id,
+            mode=pay_order.mode,
+            status=pay_order.status,
+            metadata=pay_order.metadata_,
+            destination_currency=destination_currency
+        )
+
+
+    async def pay_deposit(self, payorder_id: str, req: PayDepositRequest) -> PayDepositResponse:
+        """
+        Create payment details for a deposit order
+
+        payorder_id: str
+        req: PayDepositRequest
+            - source_currency: CurrencyBase
+            - destination_amount: float
+            - destination_address: str
+            - refund_address: str
+
+        Returns: PayDepositResponse
+            - id: str 
+            - mode: PayOrderMode
+            - status: PayOrderStatus
+            - expires_at: datetime
+
+            - source_currency: Currency
+            - source_deposit_amount: int
+            - source_deposit_ui_amount: float
+            - deposit_address: str
+            - refund_address: str
+
+            - destination_currency: Currency
+            - destination_amount: int
+            - destination_ui_amount: float
+            - destination_address: str
+
+        """
+
+        # Fetch payorder
         pay_order = self.db.query(PayOrder).get(payorder_id)
         if pay_order is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Order not found"
+            raise HTTPException( status_code=404, detail="Order not found")
+
+        # Check if payorder is a deposit
+        if pay_order.mode != PayOrderMode.DEPOSIT:
+            raise HTTPException( status_code=400, detail="Order is not a deposit")
+
+        # Check if payorder status is pending
+        if pay_order.status != PayOrderStatus.PENDING:
+            raise HTTPException( status_code=400, detail="Deposit status is not pending, cannot update")
+
+        async with CoinGeckoService() as cg:
+            source_currency = await cg.get_token_info(req.source_currency)
+            destination_currency = await cg.get_token_info(pay_order.destination_currency_id)
+
+        if not source_currency:
+            raise HTTPException( status_code=400, detail="Invalid source_currency")
+        if not destination_currency:
+            raise HTTPException( status_code=400, detail="Invalid destination_currency")
+
+
+        # Get quote (Later on via different services)
+        quote_service = QuoteService()
+        quotes = await quote_service._get_quote_currency_out(
+            from_currencies=[source_currency],
+            to_currency=destination_currency,
+            amount_out=req.destination_amount
+        )
+
+        quote = min(quotes, key=lambda x: x.value_usd)
+
+        # Create ChangeNow exchange
+        async with ChangeNowService() as cn:
+            exch = await cn.exchange(
+                address=req.destination_address,
+                refund_address=req.refund_address,
+                amount=quote.in_amount,
+                currency_in=quote.in_currency,
+                currency_out=quote.out_currency
             )
 
-        if pay_order.mode == PayOrderMode.SALE:
-            return await self.pay_sale(payorder_id, source_token_address, source_chain_id, refund_address)
-        if pay_order.mode == PayOrderMode.DEPOSIT:
-            return await self.pay_deposit(payorder_id, source_token_address, source_chain_id, refund_address)
-        else:
+        # Update PayOrder
+        pay_order.source_currency_id = source_currency.id
+        pay_order.source_amount = source_currency.ui_amount_to_amount(exch.from_amount)
+        pay_order.source_deposit_address = exch.deposit_address
+
+        pay_order.destination_amount = destination_currency.ui_amount_to_amount(quote.out_amount)
+        pay_order.destination_address = req.destination_address
+
+        pay_order.refund_address = req.refund_address
+
+        pay_order.status = PayOrderStatus.AWAITING_PAYMENT
+        pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
+
+
+        try:
+            self.db.add(pay_order)
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error("Error creating PayOrder: %s", e)
             raise HTTPException(
-                status_code=400,
-                detail="Invalid mode"
-            )
+                status_code=500,
+                detail="Error creating PayOrder"
+            ) from e
 
-
+        return PayDepositResponse(
+            id=pay_order.id,
+            mode=pay_order.mode,
+            status=pay_order.status,
+            expires_at=pay_order.expires_at,
+            source_currency=source_currency,
+            source_deposit_amount=pay_order.source_amount,
+            source_deposit_ui_amount=exch.from_amount,
+            deposit_address=pay_order.source_deposit_address,
+            refund_address=pay_order.refund_address,
+            destination_currency=destination_currency,
+            destination_amount=pay_order.destination_amount,
+            destination_ui_amount=quote.out_amount,
+            destination_address=pay_order.destination_address
+        )

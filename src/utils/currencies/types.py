@@ -174,8 +174,13 @@ class Currency(CurrencyBase):
     def __str__(self) -> str:
         return f"{self.ticker} ({self.name})"
 
-    def _decimals_for_native(self) -> int:
-        if self.is_native:
-            return self.chain.nativeCurrency.decimals
-        return self.decimals
+    #def _decimals_for_native(self) -> int:
+    #    if self.is_native:
+    #        return self.chain.nativeCurrency.decimals
+    #    return self.decimals
+
+    def ui_amount_to_amount(self, ui_amount: float) -> int:
+        """Convert a user-friendly amount to the smallest unit."""
+        return int(ui_amount * 10 ** self.decimals)
+
 
