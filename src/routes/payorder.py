@@ -1,25 +1,27 @@
 # routes/payorder.py
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Union
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from src.database.dependencies import get_db, get_current_organization
+from src.database.dependencies import get_db, get_current_organization, validate_authorization_header
 from src.models.schemas.payorder import (
-    CreatePaymentRequest,
-    CreatePaymentResponse,
-    PayOrderResponse,
     CreateDepositRequest,
     CreateSaleRequest,
     UpdateDepositRequest,
-    UpdateSaleRequest
+    UpdateSaleRequest,
+    DepositResponse,
+    SaleResponse,
+    PayDepositRequest,
+    PayDepositResponse,
+    PaySaleRequest,
+    PaySaleResponse,
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
-from src.utils.signature import validate_signature
 
-router = APIRouter(prefix="/pay-orders", tags=["pay-order"])
+router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
 
-@router.post("/deposit", response_model=PayOrderResponse)
+@router.post("/deposit", response_model=DepositResponse)
 async def create_deposit_pay_order(
     req: CreateDepositRequest,
     org: Organization = Depends(get_current_organization),
@@ -30,25 +32,23 @@ async def create_deposit_pay_order(
 
     return await pay_order_service.create_deposit(org.id, req)
 
-@router.put("/deposit", response_model=PayOrderResponse)
+
+@router.put("/{order_id}/deposit", response_model=DepositResponse)
 async def update_deposit_pay_order(
+    order_id: str,
     req: UpdateDepositRequest,
-    org: Organization = Depends(get_current_organization),
+    _: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
 ):
     """ API Route for update a payorder """
     pay_order_service = PayOrderService(db)
-    return await pay_order_service.update_deposit(req)
+    return await pay_order_service.update_deposit(order_id, req)
 
 
-
-
-
-# TODO: Add signature validation
-@router.post("/sale", response_model=PayOrderResponse)
+@router.post("/sale", response_model=SaleResponse)
 async def create_sale_pay_order(
     req: CreateSaleRequest,
-    org: Organization = Depends(get_current_organization),
+    org: Organization = Depends(validate_authorization_header),
     db: Session = Depends(get_db)
 ):
     """ API Route for create a new pay-order of type SALE """
@@ -57,47 +57,52 @@ async def create_sale_pay_order(
     return await pay_order_service.create_sale(org.id, req)
 
 
-# TODO: Add signature validation
-@router.put("/sale", response_model=PayOrderResponse)
+@router.put("/{order_id}/sale", response_model=SaleResponse)
 async def update_sale_pay_order(
+    order_id: str,
     req: UpdateSaleRequest,
-    org: Organization = Depends(get_current_organization),
+    _: Organization = Depends(validate_authorization_header),
     db: Session = Depends(get_db)
 ):
     """ API Route for update a payorder """
 
     pay_order_service = PayOrderService(db)
-    return await pay_order_service.update_sale(req)
+    return await pay_order_service.update_sale(order_id, req)
 
 
-
-
-
-
-@router.post("/pay", response_model=CreatePaymentResponse)
-async def pay_sale_order(
-    req: CreatePaymentRequest,
-    org: Organization = Depends(get_current_organization),
+@router.post("/deposit/{order_id}/payment-details", response_model=PayDepositResponse)
+async def create_deposit_payment_details(
+    order_id: str,
+    req: PayDepositRequest,
+    _: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db)
 ):
-    """ API Route for pay a payorder """
+    """ API Route for creating the final quote including deposit details to submit the transaction """
 
     pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.pay(
-        payorder_id=req.id,
-        source_token_address=req.token_address,
-        source_chain_id=req.token_chain_id,
-        refund_address=req.refund_address,
-    )
+    resp = await pay_order_service.pay_deposit(order_id, req)
 
-    # TODO: return partial PayOrderResponse omitting destination values
-    return pay_order
+    return resp
 
 
+@router.post("/sale/{order_id}/payment-details", response_model=PaySaleResponse)
+async def create_sale_payment_details(
+    order_id: str,
+    req: PaySaleRequest,
+    _: Organization = Depends(get_current_organization),
+    db: Session = Depends(get_db)
+):
+    """ API Route for creating the final quote including deposit details to submit the transaction """
+
+    pay_order_service = PayOrderService(db)
+    resp = await pay_order_service.pay_sale(order_id, req)
+
+    return resp
 
 
 
-@router.get("/{order_id}", response_model=PayOrderResponse)
+
+@router.get("/{order_id}", response_model=Union[DepositResponse, SaleResponse])
 async def get_order(
     order_id: str,
     db: Session = Depends(get_db),
@@ -110,7 +115,7 @@ async def get_order(
 
 
 #  Admin Routes
-@router.get("/", response_model=List[PayOrderResponse])
+@router.get("/", response_model=List[Union[DepositResponse, SaleResponse]])
 async def get_orders(
     db: Session = Depends(get_db),
     org: Organization = Depends(get_current_organization)

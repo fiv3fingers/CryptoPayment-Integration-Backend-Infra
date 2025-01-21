@@ -85,6 +85,17 @@ class QuoteService():
             from_currencies = await cg.price(currencies=from_currencies)
             to_currency = await cg.price(currencies=[to_currency])
 
+            print(f"\t\tAMOUNT_OUT: {amount_out}")
+            print("~~~ FROM CURRENCIES ~~~")
+            for c in from_currencies:
+                for k, v in c.model_dump().items():
+                    print(f"{k}: {v}")
+
+            print("~~~ TO CURRENCY ~~~")
+            for c in to_currency:
+                for k, v in c.model_dump().items():
+                    print(f"{k}: {v}")
+
             async with ChangeNowService() as cn:
                 for from_currency in from_currencies:
                     try:
@@ -93,7 +104,12 @@ class QuoteService():
                             currency_out=to_currency[0],
                             amount=amount_out,
                             exchange_type=ExchangeType.REVERSE)
+
+                        print(f"Estimate: {est_currency_in_amount}")
+
                         est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
+                        print(f"Estimate USD: {est_currency_in_value_usd}")
+
                         quotes.append(CurrencyQuote(
                             in_currency=from_currency,
                             in_amount=est_currency_in_amount,
@@ -101,6 +117,10 @@ class QuoteService():
                             value_usd=est_currency_in_value_usd,
                             out_currency=to_currency[0]
                         ))
+                        print("~~~ QUOTE ~~~")
+                        for q in quotes:
+                            for k, v in q.model_dump().items():
+                                print(f"{k}: {v}")
                     except Exception as e:
                         logger.error(f"Error estimating {from_currency.id} to {to_currency[0].id}: {str(e)}")
                         continue
