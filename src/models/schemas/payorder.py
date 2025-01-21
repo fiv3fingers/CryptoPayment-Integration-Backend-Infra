@@ -23,7 +23,7 @@ class PayOrderMetadata(BaseModel):
 
 
 class CreateSaleRequest(BaseModel):
-    metadata: Optional[PayOrderMetadata] = Field(default_factory=dict)
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
     destination_value_usd: float = Field(examples=[250], default=None)
 
 
@@ -37,7 +37,8 @@ class CreateDepositRequest(BaseModel):
 
 
 class UpdateSaleRequest(CreateSaleRequest):
-    pass
+    metadata: Optional[PayOrderMetadata] = Field(default_factory=PayOrderMetadata)
+    destination_value_usd: Optional[float] = Field(examples=[250], default=None)
     
 
 class UpdateDepositRequest(CreateDepositRequest):
