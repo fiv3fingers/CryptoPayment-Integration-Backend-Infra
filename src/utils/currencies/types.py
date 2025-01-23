@@ -7,6 +7,8 @@ from src.utils.types import ChainId
 from src.utils.chains.types import Chain 
 from src.utils.chains.queries import get_chain_by_id
 
+from decimal import Decimal
+
 SEPARATOR_SYMBOL: str = "-"
 
 
@@ -180,6 +182,16 @@ class Currency(CurrencyBase):
         default=None,
         description="Amount in user-friendly unit"
     )
+    balance: Optional[int] = Field(
+        examples=[1000000000000000000],
+        default=None,
+        description="Balance in smallest unit"
+    )
+    ui_balance: Optional[float] = Field(
+        examples=[1.0],
+        default=None,
+        description="Balance in user-friendly unit"
+    )
 
     def __str__(self) -> str:
         return f"{self.ticker} ({self.name})"
@@ -190,7 +202,8 @@ class Currency(CurrencyBase):
     #    return self.decimals
 
     def ui_amount_to_amount(self, ui_amount: float) -> int:
-        """Convert a user-friendly amount to the smallest unit."""
-        return int(ui_amount * 10 ** self.decimals)
+        return int(ui_amount * (10 ** self.decimals))
 
-
+    def amount_to_ui_amount(self, amount: int) -> Decimal:
+        """Convert the smallest unit amount to a user-friendly amount."""
+        return Decimal(str(amount)) / Decimal(10) ** self.decimals

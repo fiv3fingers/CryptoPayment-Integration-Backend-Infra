@@ -1,7 +1,7 @@
 from typing import NamedTuple
 from .enums import PayOrderStatus, PayOrderMode, RoutingServiceType
 from sqlalchemy import (
-    ARRAY, BigInteger, Column, String, ForeignKey, Float, 
+    ARRAY, BigInteger, Column, String, ForeignKey, Float, NUMERIC,
     DateTime, Enum as SQLEnum, func
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -66,14 +66,14 @@ class PayOrder(Base):
 
     # Input payment details
     source_currency_id = Column(String, nullable=True)
-    source_amount = Column(BigInteger, nullable=True) 
+    source_amount = Column(NUMERIC(78,0), nullable=True) 
     source_value_usd = Column(Float, nullable=True)
     source_transaction_hash = Column(String, nullable=True)
     source_deposit_address = Column(String, nullable=True)
     
     # Output payment details
     destination_currency_id = Column(String, nullable=True)
-    destination_amount = Column(BigInteger, nullable=True)
+    destination_amount = Column(NUMERIC(78,0), nullable=True)
     destination_receiving_address = Column(String, nullable=True)
     destination_value_usd = Column(Float, nullable=True)
     destination_transaction_hash = Column(String, nullable=True)
