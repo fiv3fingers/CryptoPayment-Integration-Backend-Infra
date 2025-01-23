@@ -33,7 +33,7 @@ class RateLimitError(CoinGeckoError):
 class CoinGeckoService:
     """Service wrapper around CoinGecko API with caching."""
     
-    BASE_URL = "https://api.coingecko.com/api/v3"
+    BASE_URL = "https://pro-api.coingecko.com/api/v3"
     
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -42,21 +42,23 @@ class CoinGeckoService:
         Args:
             api_key: Optional API key for CoinGecko Pro
         """
-        self.api_key = api_key or os.getenv('COINGECKO_API_KEY')
+        self.api_key = os.getenv('COINGECKO_API_KEY') if not api_key else api_key
         self.session = None
         self.headers = {
             "accept": "application/json"
         }
-        if api_key:
-            self.headers["x-cg-api-key"] = api_key
+        if self.api_key:
+            self.headers["x-cg-pro-api-key"] = self.api_key
             
         # Initialize cache
         self.cache = Cache(Cache.MEMORY)
 
     async def __aenter__(self):
         """Context manager entry."""
+
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -104,6 +106,7 @@ class CoinGeckoService:
                 elif response.status == 404:
                     return None
                 elif response.status >= 400:
+                    print(f"API error: {response.status}\n{await response.text()}\nheaders: {response.headers}")
                     raise CoinGeckoError(f"API error: {response.status}")
                     
                 response.raise_for_status()

@@ -25,16 +25,17 @@ class PayOrderMetadata(BaseModel):
 # CREATE PAYORDER
 class CreatePayOrderRequest(BaseModel):
     mode: PayOrderMode                           = Field(examples=[PayOrderMode.SALE], title="PayOrder mode")
-    
+    metadata: Optional[PayOrderMetadata]         = Field(default_factory=PayOrderMetadata)
+
     # if destination_currency and destination_amount is set omit destination_value_usd
     destination_currency: Optional[CurrencyBase] = Field(default=None)
     destination_amount: Optional[float]          = Field(examples=[0.1], default=None)
-    
+
     # if destination_value_usd is set omit destination_amount and destination_currency
     destination_value_usd: Optional[float]       = Field(examples=[250], default=None)
-    
+
     destination_receiving_address: Optional[str] = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"], default=None)
-    metadata: Optional[PayOrderMetadata]         = Field(default_factory=PayOrderMetadata)
+    
 
 
 class CreatePayOrderResponse(BaseModel):
@@ -77,8 +78,8 @@ class PaymentDetailsResponse(BaseModel):
     refund_address: str
 
     # Deposits Only 
-    destination_currency: Optional[Currency]
-    destination_receiving_address: Optional[str]
+    destination_currency: Optional[Currency] = Field(default=None)
+    destination_receiving_address: Optional[str] = Field(default=None)
 
 # class PaySaleRequest(BaseModel):
 #     source_currency: CurrencyBase
