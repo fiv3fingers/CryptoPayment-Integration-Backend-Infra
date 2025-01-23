@@ -1,8 +1,15 @@
 # routes/payorder.py
-from typing import List, Union
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from src.database.dependencies import get_db, get_current_organization, validate_authorization_header
+from src.database.dependencies import (
+    get_db,
+    get_current_organization,
+    validate_authorization_header,
+    _get_current_organization_or_none,
+    _validate_authorization_header_or_none
+)
+from src.models.enums import PayOrderMode
 from src.models.schemas.payorder import (
     CreatePayOrderRequest,
     CreatePayOrderResponse,
@@ -20,15 +27,40 @@ router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
 @router.post("/", response_model=CreatePayOrderResponse)
 async def create_pay_order(
-    #request: Request,  # Inject the Request object
     req: CreatePayOrderRequest,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _org_from_api_key: Optional[Organization] = Depends(_get_current_organization_or_none),
+    _org_from_auth_header: Optional[Organization] = Depends(_validate_authorization_header_or_none)
 ):
-    """ API Route for create a new pay-order """
-    pay_order_service = PayOrderService(db)
+    
+    try:
+        if req.mode == PayOrderMode.DEPOSIT:
+            org = _org_from_api_key
+        elif req.mode == PayOrderMode.SALE:
+            org = _org_from_auth_header
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid mode"
+            )
 
-    return await pay_order_service.create_payorder(org.id, req)
+        if org is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API Key or Signature"
+            )
+            
+        pay_order_service = PayOrderService(db)
+        return await pay_order_service.create_payorder(org.id, req)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
 
 
 @router.post("/{order_id}/quote", response_model=CreateQuoteResponse)

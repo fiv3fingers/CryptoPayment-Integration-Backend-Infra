@@ -48,7 +48,7 @@ class Organization(Base, TimestampMixin):
     owner_id = Column(String, nullable=False)
     settlement_currencies = Column(ARRAY(JSONB), nullable=False)
 
-class PayOrder(Base):
+class PayOrder(TimestampMixin, Base):
     """ PayOrder model """
     __tablename__ = 'PayOrder'
 
@@ -84,7 +84,6 @@ class PayOrder(Base):
     routing_service = Column(SQLEnum(RoutingServiceType), nullable=True)
     routing_reference = Column(String, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=True)
 
     metadata_ = Column(JSONB, nullable=False, default={}, name="metadata")
