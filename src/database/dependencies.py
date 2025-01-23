@@ -11,8 +11,6 @@ from src.utils.signature import parse_header, validate_signature
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
 
-security = HTTPBearer()
-
 def get_current_organization(api_key: str = Depends(api_key_header), db: Session = Depends(get_db)) -> Organization:
     organization = db.query(Organization).filter(Organization.api_key == api_key).first()
     if organization is None:
