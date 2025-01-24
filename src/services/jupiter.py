@@ -1,11 +1,8 @@
 import os
 import aiohttp
-from typing import List, Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 from aiocache import Cache, cached
-
-from ..utils.currencies.types import CurrencyBase
 from ..utils.logging import get_logger
-from ..utils.types import ChainId
 
 logger = get_logger(__name__)
 

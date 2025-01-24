@@ -1,13 +1,11 @@
 from typing import List, Union
-
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
-
 from .changenow import ChangeNowService, ExchangeType
 from .coingecko import CoinGeckoService
-
+from .jupiter import JupiterService
 from src.models.schemas.quote import CurrencyQuote
-
+from ..utils.types import ChainId
 
 logger = get_logger(__name__)
 
@@ -28,19 +26,26 @@ class QuoteService():
         async with CoinGeckoService() as cg:
             from_currencies = await cg.price(currencies=from_currencies)
             to_currencies = await cg.price(currencies=to_currencies)
-
-            async with ChangeNowService() as cn:
+            async with ChangeNowService() as cn, JupiterService() as jp:
                 for from_currency in from_currencies:
                     _quotes = []
                     for to_currency in to_currencies:
                         try:
                             amount_out = value_usd / to_currency.price_usd
-                            est_currency_in_amount = await cn.estimate(
-                                currency_in=from_currency, 
-                                currency_out=to_currency,
-                                amount=amount_out,
-                                exchange_type=ExchangeType.REVERSE)
+                            if await cn.is_supported(to_currency):
+                                est_currency_in_amount = await cn.estimate(
+                                    currency_in=from_currency,
+                                    currency_out=to_currency,
+                                    amount=amount_out,
+                                    exchange_type=ExchangeType.REVERSE)
 
+                            #     SOL vs SOL
+                            elif from_currency.chain_id == ChainId.SOL and to_currency.chain_id == ChainId.SOL:
+                                est_currency_in_amount = await jp.get_quote(
+                                    input_token=from_currency,
+                                    output_token=to_currency,
+                                    amount=amount_out
+                                )
 
                             est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
                             _quotes.append({
@@ -65,13 +70,12 @@ class QuoteService():
                         out_currency.ui_amount = best_quote["amount_out"]
                         out_currency.amount = out_currency.ui_amount_to_amount(out_currency.ui_amount)
 
-
-                        best_quote = CurrencyQuote(
+                        final_quote = CurrencyQuote(
                             value_usd=best_quote["value_usd_in"],
                             in_currency=in_currency,
                             out_currency=out_currency,
                         )
-                        quotes.append(best_quote)
+                        quotes.append(final_quote)
 
         return quotes
 
@@ -82,62 +86,68 @@ class QuoteService():
         amount_out: float
     ) -> List[CurrencyQuote]:
 
-        quotes = []
-        if type(from_currencies[0]) == str:
+        quotes: List[CurrencyQuote] = []
+
+        # Convert str IDs to CurrencyBase if needed
+        if isinstance(from_currencies[0], str):
             from_currencies = [CurrencyBase.from_id(id_) for id_ in from_currencies]
-        if type(to_currency) == str:
+        if isinstance(to_currency, str):
             to_currency = CurrencyBase.from_id(to_currency)
 
         async with CoinGeckoService() as cg:
             from_currencies = await cg.price(currencies=from_currencies)
-            to_currency = await cg.price(currencies=[to_currency])
+            [to_currency] = await cg.price(currencies=[to_currency])  # returns a list, unpack the single item
 
             print(f"\t\tAMOUNT_OUT: {amount_out}")
             print("~~~ FROM CURRENCIES ~~~")
-            for c in from_currencies:
-                for k, v in c.model_dump().items():
-                    print(f"{k}: {v}")
+            for fc in from_currencies:
+                print(fc.model_dump())
 
             print("~~~ TO CURRENCY ~~~")
-            for c in to_currency:
-                for k, v in c.model_dump().items():
-                    print(f"{k}: {v}")
+            print(to_currency.model_dump())
 
-            async with ChangeNowService() as cn:
+            async with ChangeNowService() as cn, JupiterService() as jp:
                 for from_currency in from_currencies:
                     try:
-                        est_currency_in_amount = await cn.estimate(
-                            currency_in=from_currency, 
-                            currency_out=to_currency[0],
-                            amount=amount_out,
-                            exchange_type=ExchangeType.REVERSE)
-
-                        print(f"Estimate: {est_currency_in_amount}")
+                        if await cn.is_supported(to_currency):
+                            est_currency_in_amount = await cn.estimate(
+                                currency_in=from_currency,
+                                currency_out=to_currency,
+                                amount=amount_out,
+                                exchange_type=ExchangeType.REVERSE
+                            )
+                        elif from_currency.chain_id == ChainId.SOL and to_currency.chain_id == ChainId.SOL:
+                            est_currency_in_amount = await jp.get_quote(
+                                input_token=from_currency,
+                                output_token=to_currency,
+                                amount=amount_out
+                            )
+                        else:
+                            # Neither supported by CN nor both on Solana => skip
+                            continue
 
                         est_currency_in_value_usd = est_currency_in_amount * from_currency.price_usd
-                        print(f"Estimate USD: {est_currency_in_value_usd}")
-
                         from_currency.ui_amount = est_currency_in_amount
                         from_currency.amount = from_currency.ui_amount_to_amount(from_currency.ui_amount)
-
-                        out_currency: Currency = to_currency[0]
+                        out_currency: Currency = to_currency
                         out_currency.ui_amount = amount_out
                         out_currency.amount = out_currency.ui_amount_to_amount(out_currency.ui_amount)
 
-
-                        quotes.append(CurrencyQuote(
+                        quote_obj = CurrencyQuote(
                             value_usd=est_currency_in_value_usd,
                             in_currency=from_currency,
-                            out_currency=out_currency,
-                        ))
+                            out_currency=out_currency
+                        )
+                        quotes.append(quote_obj)
+
                         print("~~~ QUOTE ~~~")
                         for q in quotes:
-                            for k, v in q.model_dump().items():
-                                print(f"{k}: {v}")
+                            print(q.model_dump())
+
                     except Exception as e:
-                        logger.error(f"Error estimating {from_currency.id} to {to_currency[0].id}: {str(e)}")
+                        logger.error(
+                            f"Error estimating {from_currency.id} to {to_currency.id}: {str(e)}"
+                        )
                         continue
-
-
 
         return quotes
