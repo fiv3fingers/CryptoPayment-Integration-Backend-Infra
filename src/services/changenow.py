@@ -1,4 +1,3 @@
-
 from typing import Optional, List, Union
 import os
 import aiohttp
@@ -131,10 +130,6 @@ class ChangeNowService:
         try:
             #params = request.model_dump(by_alias=True, exclude_none=True)
             params = request.to_api_params()
-            for key, value in params.items():
-                print(f"{key}: {value}")
-
-            logger.debug(f"Creating estimate with params: {params}")
 
             async with self.session.get(
                 f"{self.base_url}/exchange/estimated-amount",
@@ -164,7 +159,6 @@ class ChangeNowService:
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                logger.debug(f"Exchange response: {data}")
                 return Exchange.model_validate(data)
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
@@ -196,7 +190,6 @@ class ChangeNowService:
         """Get ChangeNow currency with caching."""
         try:
             network_name = currency.chain.get_alias(ServiceType.CHANGENOW)
-            logger.debug(f"Looking up ChangeNow currency for {currency.id} on {network_name}")
 
             cn_currencies = await self.get_available_currencies()
             relevant_currencies = [c for c in cn_currencies if c.network == network_name]
@@ -238,9 +231,6 @@ class ChangeNowService:
         try:
             cn_currency_in = await self._get_changenow_currency(currency_in)
             cn_currency_out = await self._get_changenow_currency(currency_out)
-
-            print(" ~~~ ESTIMATE (CN) ~~~")
-            print(f"amount: {amount}")
 
             if exchange_type == ExchangeType.DIRECT:
                 est = await self._create_estimate(EstimateRequest(
@@ -308,9 +298,6 @@ class ChangeNowService:
                     flow=Flow.STANDARD,
                     type=ExchangeType.REVERSE
                 ))
-
-            raise ValueError(f"Invalid exchange type {exchange_type}")
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
-
