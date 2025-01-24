@@ -8,6 +8,7 @@ from src.models.schemas.payorder import (
     CreateQuoteResponse,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
+    ProcessPaymentResponse
 )
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
@@ -341,4 +342,50 @@ class PayOrderService(BaseService[PayOrder]):
             destination_receiving_address=None if is_sale else pay_order.destination_receiving_address
         )
 
-    
+        
+    async def process_payment_txhash(self, payorder_id: str, tx_hash: str) -> ProcessPaymentResponse:
+        """
+        Process a payment txhash
+
+        payorder_id: str
+        tx_hash: str
+        """
+
+        # Fetch payorder
+        pay_order = self.db.query(PayOrder).get(payorder_id)
+        if pay_order is None:
+            raise HTTPException( status_code=404, detail="Order not found")
+
+        # Check if payorder status is awaiting payment
+        if pay_order.status == PayOrderStatus.PENDING:
+            raise HTTPException( status_code=400, detail="PayOrder is pending")
+
+        exch_id = pay_order.routing_reference
+
+        async with ChangeNowService() as cn:
+            status = await cn.get_exchange_status(exch_id)
+            if status is None:
+                raise HTTPException( status_code=400, detail="Invalid exchange id")
+
+        if status.deposit_hash:
+            if status.deposit_hash.lower() == tx_hash.lower():
+                pay_order.status = PayOrderStatus.RECEIVED
+                pay_order.deposit_tx_hash = tx_hash
+
+
+        try:
+            self.db.add(pay_order)
+            self.db.commit()
+            self.db.refresh(pay_order)
+        except Exception as e:
+            logger.error("Error updating PayOrder: %s", e)
+            raise HTTPException(
+                status_code=500,
+                detail="Error updating PayOrder"
+            ) from e
+
+        return ProcessPaymentResponse(
+            deposit_tx_hash=tx_hash,
+            status=pay_order.status
+        )
+

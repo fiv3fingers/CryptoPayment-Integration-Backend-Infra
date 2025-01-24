@@ -11,6 +11,7 @@ class PayOrderStatus(Enum):
     COMPLETED = "COMPLETED"
     AWAITING_PAYMENT = "AWAITING_PAYMENT"
     FAILED = "FAILED"
+    RECEIVED = "RECEIVED"
 
 class PayOrderMode(Enum):
     SALE = "SALE"

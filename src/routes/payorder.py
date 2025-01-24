@@ -18,6 +18,7 @@ from src.models.schemas.payorder import (
     CreateQuoteResponse,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
+    ProcessPaymentResponse
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
@@ -112,12 +113,20 @@ async def get_payorder(
 
 
 
-@router.post("/{payorder_id}/process", response_model=PayOrderResponse)
+@router.get("/{payorder_id}/process", response_model=ProcessPaymentResponse)
 async def process_payorder(
         payorder_id: str,
+        tx_hash: str,
         db: Session = Depends(get_db),
         _: Organization = Depends(get_current_organization)):
-    pass
+    """ API Route for processing a payorder """
+
+    pay_order_service = PayOrderService(db)
+    resp = await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
+
+    return resp
+
+
 
 #  Admin Routes
 @router.get("/", response_model=List[PayOrderResponse])

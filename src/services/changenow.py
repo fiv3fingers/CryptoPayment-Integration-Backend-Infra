@@ -163,7 +163,7 @@ class ChangeNowService:
             logger.error(f"Error creating exchange: {e}")
             raise
 
-    async def _get_exchange_status(self, exchange_id: str) -> ExchangeStatus:
+    async def get_exchange_status(self, exchange_id: str) -> ExchangeStatus:
         """Get exchange status."""
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)

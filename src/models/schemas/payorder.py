@@ -77,3 +77,14 @@ class PaymentDetailsResponse(BaseModel):
     # Deposits Only 
     destination_currency: Optional[Currency] = Field(default=None)
     destination_receiving_address: Optional[str] = Field(default=None)
+
+class ProcessPaymentResponse(BaseModel):
+    deposit_tx_hash: str = Field(examples=["0xbc0c9c8646c6cd5e6225ecc8dfc54259bcc586c6c5fe46810f4ea98c6adaae59"])
+    status: PayOrderStatus = Field(examples=[PayOrderStatus.PENDING], title="PayOrder status")
+
+
+
+
+
+
+
