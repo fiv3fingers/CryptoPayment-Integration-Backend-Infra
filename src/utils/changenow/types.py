@@ -139,11 +139,11 @@ class ExchangeStatus(BaseRequest):
     to_currency: str
     from_network: str
     to_network: str
-    from_ticker: str = Field(alias="fromLegacyTicker")
-    to_ticker: str = Field(alias="toLegacyTicker")
+    #from_ticker: str = Field(alias="fromLegacyTicker")
+    #to_ticker: str = Field(alias="toLegacyTicker")
     
-    expected_send_amount: float = Field(alias="expectedAmountFrom")
-    expected_receive_amount: float = Field(alias="expectedAmountTo")
+    expected_send_amount: Optional[float] = Field(None, alias="expectedAmountFrom")
+    expected_receive_amount: Optional[float] = Field(None, alias="expectedAmountTo")
     actual_send_amount: Optional[float] = Field(None, alias="amountFrom")
     actual_receive_amount: Optional[float] = Field(None, alias="amountTo")
     
