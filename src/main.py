@@ -19,4 +19,4 @@ app.add_middleware(
 )
 
 app.include_router(payorder.router)
-# app.include_router(quote.router)
+app.include_router(quote.router)

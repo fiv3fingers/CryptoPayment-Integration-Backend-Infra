@@ -39,6 +39,7 @@ class ServiceType(str, Enum):
     ALCHEMY = "ALCHEMY",
     COINGECKO = "COINGECKO",
     CHANGENOW = "CHANGENOW",
+    JUPITER = "JUPITER",
 
 
 class AuthHeaderType(Dict):

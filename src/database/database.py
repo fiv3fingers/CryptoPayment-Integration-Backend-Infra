@@ -1,9 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from ..models.database_models import Base
+from dotenv import load_dotenv
 
 import os
 
+load_dotenv()
 _database = os.getenv('POSTGRES_DB')
 _user = os.getenv('POSTGRES_USER')
 _password = os.getenv('POSTGRES_PASSWORD')
