@@ -3,7 +3,7 @@ import os
 import aiohttp
 from aiocache import Cache, cached
 
-from src.utils.types import ChainId, ServiceType
+from src.utils.types import ServiceType
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.changenow.types import (
     ChangeNowCurrency,
@@ -128,7 +128,6 @@ class ChangeNowService:
             self.session = aiohttp.ClientSession(headers=self.headers)
 
         try:
-            #params = request.model_dump(by_alias=True, exclude_none=True)
             params = request.to_api_params()
 
             async with self.session.get(
@@ -207,7 +206,7 @@ class ChangeNowService:
 
             return result
         except Exception as e:
-            logger.error(f"Error getting ChangeNow currency: {e}")
+            #logger.error(f"Error getting ChangeNow currency: {e}")
             raise
 
     async def is_supported(self, currency: Union[Currency, CurrencyBase, str]) -> bool:

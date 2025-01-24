@@ -142,7 +142,12 @@ class PayOrderService(BaseService[PayOrder]):
         #    raise HTTPException(status_code=400, detail="PayOrder status is not pending. Quote cannot be created")
 
         # Fetch wallet currencies
-        all_wallet_balances = get_wallet_balances(req.wallet_address, req.chain_id)
+        all_wallet_balances = await get_wallet_balances(
+            wallet_address=req.wallet_address,
+            chain_type=req.chain_type,
+            evm_chain_ids=req.evm_chain_ids,
+            filter_zero=True
+        )
         async with ChangeNowService() as cn:
             wallet_currencies = [b.currency for b in all_wallet_balances if await cn.is_supported(b.currency)]
 

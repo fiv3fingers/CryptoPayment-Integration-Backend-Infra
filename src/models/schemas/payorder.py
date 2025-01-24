@@ -1,10 +1,10 @@
 from typing import List, Optional
-from src.utils.currencies.types import Currency, CurrencyBase
 from pydantic import BaseModel, Field
 from datetime import datetime
 
+from src.utils.currencies.types import Currency, CurrencyBase
 from src.models.enums import PayOrderMode, PayOrderStatus
-from src.utils.types import ChainId
+from src.utils.types import ChainId, ChainType
 
 from pydantic import BaseModel, Field
 
@@ -51,7 +51,9 @@ class PayOrderResponse(BaseModel):
 # CREATE QUOTE
 class CreateQuoteRequest(BaseModel):
     wallet_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
-    chain_id: ChainId = Field(examples=[ChainId.ETH])
+    chain_type: ChainType = Field(examples=[ChainType.EVM])
+    evm_chain_ids: Optional[List[ChainId]] = Field(default=None, examples=[[ChainId.ETH, ChainId.BASE]])
+    # destination_ui_amount: Optional[float] = Field(examples=[3.5])
 
 class CreateQuoteResponse(BaseModel):
     source_currencies: List[Currency]

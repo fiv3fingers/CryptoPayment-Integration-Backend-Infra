@@ -1,4 +1,4 @@
-from .types import Chain, ServiceType, NativeCurrency
+from .types import Chain
 from src.utils.types import ChainId, ChainType
 from .data import CHAIN_DATA_MAP
 
@@ -12,7 +12,7 @@ def get_chain_by_id(chain_id: ChainId) -> Chain:
 
 def get_chains_by_type(chain_type: ChainType) -> list[Chain]:
     """Get chains by their type."""
-    return [chain for chain in CHAIN_DATA_MAP.values() if chain.type == chain_type]
+    return [chain for chain in CHAIN_DATA_MAP.values() if chain.chain_type == chain_type]
 
 def get_chain_by_name(chain_name: str) -> Chain:
     """Get chain data by its name."""

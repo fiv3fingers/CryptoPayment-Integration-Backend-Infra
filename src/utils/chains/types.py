@@ -1,9 +1,7 @@
-# utils/chains/types.py
 from typing import Optional, Dict
 from pydantic import BaseModel
 
 from src.utils.types import ChainType, ServiceType, ChainId
-
 
 class AliasModel(BaseModel):
     aliases: Optional[Dict[ServiceType, str]] = None
@@ -18,15 +16,13 @@ class NativeCurrency(AliasModel):
     ticker: str
     decimals: int
     image: str
-    #aliases: Optional[Dict[ServiceType, str]] = None
 
 
 class Chain(AliasModel):
     id: ChainId
     name: str
-    type: ChainType
+    chain_type: ChainType
     image: str
     nativeCurrency: NativeCurrency
-    #aliases: Optional[Dict[ServiceType, str]] = None
 
 
