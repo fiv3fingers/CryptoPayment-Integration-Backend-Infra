@@ -3,8 +3,7 @@ from typing import List, Optional
 from .types import Balance
 from src.utils.types import ChainId, ChainType
 from src.utils.currencies.types import CurrencyBase
-from src.utils.chains.queries import get_chain_by_id, get_chains_by_type
-from src.utils.chains.data import CHAIN_DATA_MAP
+from src.utils.chains.queries import get_chains_by_type
 from . import evm, sol, sui
 
 

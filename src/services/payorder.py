@@ -100,7 +100,7 @@ class PayOrderService(BaseService[PayOrder]):
         # Convert user friendly destinatino amount to int amount
         _destination_amount: int | None = None
         if destination_currency and req.destination_amount:
-            _destination_amount = destination_currency.ui_amount_to_amount(
+            _destination_amount = destination_currency.amount_ui_to_raw(
                 req.destination_amount
             )
 
@@ -169,6 +169,7 @@ class PayOrderService(BaseService[PayOrder]):
             evm_chain_ids=req.evm_chain_ids,
             filter_zero=True,
         )
+        # Filter out unsupported currencies
         async with ChangeNowService() as cn:
             wallet_currencies = [
                 b.currency
@@ -176,65 +177,70 @@ class PayOrderService(BaseService[PayOrder]):
                 if await cn.is_supported(b.currency)
             ]
 
-        quote_service = QuoteService()
-
-        # If SALE payOrder and the destination_currency_id is not set, quote based on settlement currencies
-        # (value_usd, NO destination_currency_id set)
-        if (pay_order.mode == PayOrderMode.SALE) and (
-            pay_order.destination_currency_id is None
-        ):
-            org = self.db.query(Organization).get(pay_order.organization_id)
-            if org is None:
-                raise HTTPException(status_code=404, detail="Organization not found")
-            settlement_currencies = [
-                SettlementCurrency.from_dict(c) for c in org.settlement_currencies
-            ]
-
-            async with CoinGeckoService() as cg:
-                destination_currencies = [
-                    await cg.get_token_info(c.currency_id)
-                    for c in settlement_currencies
+        async with QuoteService() as quote_service:
+            # If SALE payOrder and the destination_currency_id is not set, quote based on settlement currencies
+            # (value_usd, NO destination_currency_id set)
+            if (pay_order.mode == PayOrderMode.SALE) and (
+                pay_order.destination_currency_id is None
+            ):
+                org = self.db.query(Organization).get(pay_order.organization_id)
+                if org is None:
+                    raise HTTPException(
+                        status_code=404, detail="Organization not found"
+                    )
+                settlement_currencies = [
+                    SettlementCurrency.from_dict(c) for c in org.settlement_currencies
                 ]
-            if not destination_currencies:
-                raise HTTPException(
-                    status_code=400, detail="Invalid destination_currency"
+
+                async with CoinGeckoService() as cg:
+                    destination_currencies = [
+                        await cg.get_token_info(c.currency_id)
+                        for c in settlement_currencies
+                    ]
+                # remove None
+                destination_currencies = [
+                    c for c in destination_currencies if c is not None
+                ]
+                if not destination_currencies or len(destination_currencies) == 0:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid destination_currency"
+                    )
+
+                quotes = await quote_service.quote_usd(
+                    source_currencies=wallet_currencies,
+                    destination_currencies=destination_currencies,
+                    destination_value_usd=pay_order.destination_value_usd,
                 )
 
-            quotes = await quote_service._get_quote_value_usd(
-                from_currencies=wallet_currencies,
-                to_currencies=destination_currencies,
-                value_usd=pay_order.destination_value_usd,
-            )
+            # Otherwise quote based on destination currency
+            else:
+                async with CoinGeckoService() as cg:
+                    destination_currency = await cg.get_token_info(
+                        pay_order.destination_currency_id
+                    )
+                if not destination_currency:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid destination_currency"
+                    )
 
-        # Otherwise quote based on destination currency
-        else:
-            async with CoinGeckoService() as cg:
-                destination_currency = await cg.get_token_info(
-                    pay_order.destination_currency_id
+                quotes = await quote_service.quote(
+                    source_currencies=wallet_currencies,
+                    destination_currency=destination_currency,
+                    destination_ui_amount=destination_currency.amount_raw_to_ui(
+                        int(pay_order.destination_amount)
+                    ),
                 )
-            if not destination_currency:
-                raise HTTPException(
-                    status_code=400, detail="Invalid destination_currency"
+
+            response_source_currencies = [q.source_currency for q in quotes]
+            for c in response_source_currencies:
+                c.balance = next(
+                    b.amount for b in all_wallet_balances if b.currency.id == c.id
                 )
+                c.ui_balance = float(c.amount_raw_to_ui(c.balance))
 
-            quotes = await quote_service._get_quote_currency_out(
-                from_currencies=wallet_currencies,
-                to_currency=destination_currency,
-                amount_out=destination_currency.amount_to_ui_amount(
-                    pay_order.destination_amount
-                ),
+            return CreateQuoteResponse(
+                source_currencies=response_source_currencies,
             )
-
-        response_source_currencies = [q.in_currency for q in quotes]
-        for c in response_source_currencies:
-            c.balance = next(
-                b.amount for b in all_wallet_balances if b.currency.id == c.id
-            )
-            c.ui_balance = float(c.amount_to_ui_amount(c.balance))
-
-        return CreateQuoteResponse(
-            source_currencies=response_source_currencies,
-        )
 
     async def payment_details(
         self, payorder_id: str, req: PaymentDetailsRequest
@@ -273,92 +279,93 @@ class PayOrderService(BaseService[PayOrder]):
                 status_code=400, detail="Deposit status is not pending, cannot update"
             )
 
-        quote_service = QuoteService()
-
-        async with CoinGeckoService() as cg:
-            source_currency = await cg.get_token_info(req.source_currency)
-        if not source_currency:
-            raise HTTPException(status_code=400, detail="Invalid source_currency")
-
-        is_sale: bool = pay_order.mode == PayOrderMode.SALE
-
-        # destination_currency_id for SALE is not set => payment details based on settlement currencies in organization
-        if is_sale and (pay_order.destination_currency_id is None):
-            org = self.db.query(Organization).get(pay_order.organization_id)
-            if org is None:
-                raise HTTPException(status_code=404, detail="Organization not found")
-            settlement_currencies = [
-                SettlementCurrency.from_dict(c) for c in org.settlement_currencies
-            ]
-
+        async with QuoteService() as quote_service:
             async with CoinGeckoService() as cg:
-                destination_currencies = [
-                    await cg.get_token_info(c.currency_id)
-                    for c in settlement_currencies
+                source_currency = await cg.get_token_info(req.source_currency)
+            if not source_currency:
+                raise HTTPException(status_code=400, detail="Invalid source_currency")
+
+            is_sale: bool = pay_order.mode == PayOrderMode.SALE
+
+            # destination_currency_id for SALE is not set => payment details based on settlement currencies in organization
+            if is_sale and (pay_order.destination_currency_id is None):
+                org = self.db.query(Organization).get(pay_order.organization_id)
+                if org is None:
+                    raise HTTPException(
+                        status_code=404, detail="Organization not found"
+                    )
+                settlement_currencies = [
+                    SettlementCurrency.from_dict(c) for c in org.settlement_currencies
                 ]
-            if not destination_currencies or len(destination_currencies) == 0:
-                raise HTTPException(
-                    status_code=400, detail="Invalid settlement_currency"
+
+                async with CoinGeckoService() as cg:
+                    destination_currencies = [
+                        await cg.get_token_info(c.currency_id)
+                        for c in settlement_currencies
+                    ]
+                if not destination_currencies or len(destination_currencies) == 0:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid settlement_currency"
+                    )
+
+                # Get quote
+                quotes = await quote_service.quote_usd(
+                    source_currencies=[source_currency],
+                    destination_currencies=destination_currencies,
+                    destination_value_usd=pay_order.destination_value_usd,
+                )
+                quote = min(quotes, key=lambda x: x.source_value_usd)
+
+                destination_currency = quote.destination_currency
+
+                destination_receiving_address = next(
+                    c.address
+                    for c in settlement_currencies
+                    if c.currency_id == destination_currency.id
                 )
 
-            # Get quote
-            quotes = await quote_service._get_quote_value_usd(
-                from_currencies=[source_currency],
-                to_currencies=destination_currencies,
-                value_usd=pay_order.destination_value_usd,
-            )
-            quote = min(quotes, key=lambda x: x.value_usd)
+            else:
+                # destination_currency_id is set => payment details based on destination_currency_id
 
-            destination_currency = quote.out_currency
+                async with CoinGeckoService() as cg:
+                    destination_currency = await cg.get_token_info(
+                        pay_order.destination_currency_id
+                    )
+                if not destination_currency:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid destination_currency"
+                    )
 
-            destination_receiving_address = next(
-                c.address
-                for c in settlement_currencies
-                if c.currency_id == destination_currency.id
-            )
-
-        else:
-            # destination_currency_id is set => payment details based on destination_currency_id
-
-            async with CoinGeckoService() as cg:
-                destination_currency = await cg.get_token_info(
-                    pay_order.destination_currency_id
+                # Get quote
+                quotes = await quote_service.quote(
+                    source_currencies=[source_currency],
+                    destination_currency=destination_currency,
+                    destination_ui_amount=destination_currency.amount_raw_to_ui(
+                        pay_order.destination_amount
+                    ),
                 )
-            if not destination_currency:
-                raise HTTPException(
-                    status_code=400, detail="Invalid destination_currency"
-                )
+                quote = min(quotes, key=lambda x: x.source_value_usd)
 
-            # Get quote
-            quotes = await quote_service._get_quote_currency_out(
-                from_currencies=[source_currency],
-                to_currency=destination_currency,
-                amount_out=destination_currency.amount_to_ui_amount(
-                    pay_order.destination_amount
-                ),
-            )
-            quote = min(quotes, key=lambda x: x.value_usd)
-
-            destination_receiving_address = pay_order.destination_receiving_address
+                destination_receiving_address = pay_order.destination_receiving_address
 
         # Create ChangeNow exchange
         async with ChangeNowService() as cn:
             exch = await cn.exchange(
                 address=destination_receiving_address,
                 refund_address=req.refund_address,
-                amount=quote.in_currency.ui_amount,
-                currency_in=quote.in_currency,
-                currency_out=quote.out_currency,
+                amount=quote.source_currency.ui_amount,
+                currency_in=quote.source_currency,
+                currency_out=quote.destination_currency,
             )
 
         # Update amounts
         source_currency.ui_amount = exch.from_amount
-        source_currency.amount = source_currency.ui_amount_to_amount(
+        source_currency.amount = source_currency.amount_ui_to_raw(
             source_currency.ui_amount
         )
 
-        destination_currency.ui_amount = quote.out_currency.ui_amount
-        destination_currency.amount = destination_currency.ui_amount_to_amount(
+        destination_currency.ui_amount = quote.destination_currency.ui_amount
+        destination_currency.amount = destination_currency.amount_ui_to_raw(
             destination_currency.ui_amount
         )
 

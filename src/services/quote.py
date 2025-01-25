@@ -1,156 +1,225 @@
-from typing import List, Union
+import asyncio
+from typing import List, TypeVar, Sequence, Union
+from dataclasses import dataclass
+from decimal import Decimal
 
+from src.utils.currencies.helpers import to_currency_base
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
-
-from .changenow import ChangeNowService, ExchangeType
-from .coingecko import CoinGeckoService
-
-from src.models.schemas.quote import CurrencyQuote
-
+from src.services.changenow import ChangeNowService, ExchangeType
+from src.services.coingecko import CoinGeckoService
+from src.utils.types import ChainId
 
 logger = get_logger(__name__)
 
+CurrencyType = TypeVar("CurrencyType", str, CurrencyBase, Currency)
+
+
+@dataclass
+class CurrencyQuote:
+    """Represents a currency exchange quote."""
+
+    source_currency: Currency
+    destination_currency: Currency
+
+    @property
+    def source_value_usd(self) -> float:
+        """Calculate the USD value of the source amount."""
+        if not self.source_currency.price_usd:
+            raise ValueError(f"Price not available for {self.source_currency.id}")
+        if not self.source_currency.ui_amount:
+            raise ValueError("Source amount not set")
+        return self.source_currency.ui_amount * self.source_currency.price_usd
+
+    @property
+    def destination_value_usd(self) -> float:
+        """Calculate the USD value of the destination amount."""
+        if not self.destination_currency.price_usd:
+            raise ValueError(f"Price not available for {self.destination_currency.id}")
+        if not self.destination_currency.ui_amount:
+            raise ValueError("Destination amount not set")
+        return self.destination_currency.ui_amount * self.destination_currency.price_usd
+
+    def __str__(self) -> str:
+        """Human-readable representation of the quote."""
+        return (
+            f"{self.source_currency.ui_amount} {self.source_currency.ticker} "
+            f"({self.source_value_usd:.2f} USD) → "
+            f"{self.destination_currency.ui_amount} {self.destination_currency.ticker} "
+            f"({self.destination_value_usd:.2f} USD)"
+        )
+
 
 class QuoteService:
-    async def _get_quote_value_usd(
+    """Service for getting cryptocurrency exchange quotes.
+
+    It supports quoting by either USD value or specific cryptocurrency amounts.
+    """
+
+    def __init__(self):
+        self.coingecko = CoinGeckoService()
+        self.changenow = ChangeNowService()
+
+    async def __aenter__(self):
+        """Set up external service connections."""
+        await self.coingecko.__aenter__()
+        await self.changenow.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Clean up external service connections."""
+        await self.coingecko.__aexit__(exc_type, exc_val, exc_tb)
+        await self.changenow.__aexit__(exc_type, exc_val, exc_tb)
+
+    async def _fetch_currency_prices(
+        self, currencies: Sequence[CurrencyType]
+    ) -> List[Currency]:
+        """Fetch prices for a list of currencies using CoinGecko."""
+        currency_bases = [to_currency_base(c) for c in currencies]
+        return await self.coingecko.price(currencies=currency_bases)
+
+    async def _get_exchange_estimate(
         self,
-        from_currencies: Union[List[str], List[CurrencyBase]],
-        to_currencies: Union[List[str], List[CurrencyBase]],
-        value_usd: float,
-    ) -> List[CurrencyQuote]:
-        quotes = []
-        if type(from_currencies[0]) == str:
-            from_currencies = [CurrencyBase.from_id(id_) for id_ in from_currencies]
-        if type(to_currencies[0]) == str:
-            to_currencies = [CurrencyBase.from_id(id_) for id_ in to_currencies]
+        source_currency: Currency,
+        destination_currency: Currency,
+        destination_amount: Decimal,
+    ) -> CurrencyQuote:
+        """Get an exchange estimate for a currency pair.
 
-        async with CoinGeckoService() as cg:
-            from_currencies = await cg.price(currencies=from_currencies)
-            to_currencies = await cg.price(currencies=to_currencies)
+        Uses ChangeNow to estimate how much source currency is needed for the
+        desired destination amount.
+        """
+        if not destination_currency.price_usd:
+            raise ValueError(f"Price not available for {destination_currency.id}")
 
-            async with ChangeNowService() as cn:
-                for from_currency in from_currencies:
-                    _quotes = []
-                    for to_currency in to_currencies:
-                        try:
-                            amount_out = value_usd / to_currency.price_usd
-                            est_currency_in_amount = await cn.estimate(
-                                currency_in=from_currency,
-                                currency_out=to_currency,
-                                amount=amount_out,
-                                exchange_type=ExchangeType.REVERSE,
-                            )
+        try:
+            source_amount = await self.changenow.estimate(
+                currency_in=source_currency,
+                currency_out=destination_currency,
+                amount=destination_amount,
+                exchange_type=ExchangeType.REVERSE,
+            )
 
-                            est_currency_in_value_usd = (
-                                est_currency_in_amount * from_currency.price_usd
-                            )
-                            _quotes.append(
-                                {
-                                    "from_currency": from_currency,
-                                    "to_currency": to_currency,
-                                    "amount_in": est_currency_in_amount,
-                                    "amount_out": amount_out,
-                                    "value_usd_in": est_currency_in_value_usd,
-                                }
-                            )
+            # Update currency objects with amounts
+            source_currency.ui_amount = source_amount
+            source_currency.amount = source_currency.amount_ui_to_raw(source_amount)
+            destination_currency.ui_amount = float(destination_amount)
+            destination_currency.amount = destination_currency.amount_ui_to_raw(
+                destination_amount
+            )
 
-                        except Exception as e:
-                            logger.error(
-                                f"Error estimating {from_currency.id} to {to_currency.id}: {str(e)}"
-                            )
-                            continue
+            return CurrencyQuote(
+                source_currency=source_currency,
+                destination_currency=destination_currency,
+            )
 
-                    if _quotes:
-                        best_quote = min(_quotes, key=lambda x: x["value_usd_in"])
-                        in_currency: Currency = best_quote["from_currency"]
-                        in_currency.ui_amount = best_quote["amount_in"]
-                        in_currency.amount = in_currency.ui_amount_to_amount(
-                            in_currency.ui_amount
-                        )
+        except Exception as e:
+            logger.error(
+                f"Error estimating {source_currency.id} to {destination_currency.id}: {str(e)}"
+            )
+            raise
 
-                        out_currency: Currency = best_quote["to_currency"]
-                        out_currency.ui_amount = best_quote["amount_out"]
-                        out_currency.amount = out_currency.ui_amount_to_amount(
-                            out_currency.ui_amount
-                        )
-
-                        best_quote = CurrencyQuote(
-                            value_usd=best_quote["value_usd_in"],
-                            in_currency=in_currency,
-                            out_currency=out_currency,
-                        )
-                        quotes.append(best_quote)
-
-        return quotes
-
-    async def _get_quote_currency_out(
+    async def _get_best_quote(
         self,
-        from_currencies: Union[List[str], List[CurrencyBase]],
-        to_currency: Union[str, CurrencyBase],
-        amount_out: float,
-    ) -> List[CurrencyQuote]:
+        source_currency: Currency,
+        destination_currencies: List[Currency],
+        destination_value_usd: float,
+    ) -> CurrencyQuote:
+        """Find the best quote among multiple destination currencies.
 
+        Returns the quote requiring the lowest source currency amount in USD terms.
+        """
         quotes = []
-        if type(from_currencies[0]) == str:
-            from_currencies = [CurrencyBase.from_id(id_) for id_ in from_currencies]
-        if type(to_currency) == str:
-            to_currency = CurrencyBase.from_id(to_currency)
 
-        async with CoinGeckoService() as cg:
-            from_currencies = await cg.price(currencies=from_currencies)
-            to_currency = await cg.price(currencies=[to_currency])
+        tasks = []
+        for dest_currency in destination_currencies:
+            if not dest_currency.price_usd:
+                logger.warning(f"Price not available for {dest_currency.id}")
+                continue
 
-            # print(f"\t\tAMOUNT_OUT: {amount_out}")
-            # print("~~~ FROM CURRENCIES ~~~")
-            # for c in from_currencies:
-            #    for k, v in c.model_dump().items():
-            #        print(f"{k}: {v}")
-            # print("~~~ TO CURRENCY ~~~")
-            # for c in to_currency:
-            #    for k, v in c.model_dump().items():
-            #        print(f"{k}: {v}")
+            dest_amount = Decimal(str(destination_value_usd / dest_currency.price_usd))
+            task = self._get_exchange_estimate(
+                source_currency=source_currency,
+                destination_currency=dest_currency,
+                destination_amount=dest_amount,
+            )
+            tasks.append(task)
 
-            async with ChangeNowService() as cn:
-                for from_currency in from_currencies:
-                    try:
-                        est_currency_in_amount = await cn.estimate(
-                            currency_in=from_currency,
-                            currency_out=to_currency[0],
-                            amount=amount_out,
-                            exchange_type=ExchangeType.REVERSE,
-                        )
+        if not tasks:
+            raise ValueError("No viable destination currencies found")
 
-                        est_currency_in_value_usd = (
-                            est_currency_in_amount * from_currency.price_usd
-                        )
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                        from_currency.ui_amount = est_currency_in_amount
-                        from_currency.amount = from_currency.ui_amount_to_amount(
-                            from_currency.ui_amount
-                        )
+        # Filter successful quotes
+        for result in results:
+            if isinstance(result, BaseException):
+                logger.error(f"Exchange estimation failed: {str(result)}")
+                continue
+            quotes.append(result)
 
-                        out_currency: Currency = to_currency[0]
-                        out_currency.ui_amount = amount_out
-                        out_currency.amount = out_currency.ui_amount_to_amount(
-                            out_currency.ui_amount
-                        )
+        if not quotes:
+            raise ValueError("No quotes available")
 
-                        quotes.append(
-                            CurrencyQuote(
-                                value_usd=est_currency_in_value_usd,
-                                in_currency=from_currency,
-                                out_currency=out_currency,
-                            )
-                        )
-                        # print("~~~ QUOTE ~~~")
-                        # for q in quotes:
-                        #    for k, v in q.model_dump().items():
-                        #        print(f"{k}: {v}")
-                    except Exception as e:
-                        logger.error(
-                            f"Error estimating {from_currency.id} to {to_currency[0].id}: {str(e)}"
-                        )
-                        continue
+        # Return quote with lowest source USD value
+        return min(quotes, key=lambda q: q.source_value_usd)
 
-        return quotes
+    async def quote_usd(
+        self,
+        source_currencies: List[CurrencyType],
+        destination_currencies: List[CurrencyType],
+        destination_value_usd: float,
+    ) -> List[CurrencyQuote]:
+        """Get quotes based on a desired USD value.
+
+        For each source currency, finds the best destination currency that will
+        provide the desired USD value for the lowest input cost.
+        """
+        src_currencies, dest_currencies = await asyncio.gather(
+            self._fetch_currency_prices(source_currencies),
+            self._fetch_currency_prices(destination_currencies),
+        )
+
+        # Get best quote for each source currency
+        quote_tasks = [
+            self._get_best_quote(
+                source_currency=src_cur,
+                destination_currencies=dest_currencies,
+                destination_value_usd=destination_value_usd,
+            )
+            for src_cur in src_currencies
+        ]
+
+        results = await asyncio.gather(*quote_tasks, return_exceptions=True)
+
+        # Filter successful quotes
+        return [quote for quote in results if not isinstance(quote, BaseException)]
+
+    async def quote(
+        self,
+        source_currencies: List[CurrencyType],
+        destination_currency: CurrencyType,
+        destination_ui_amount: Union[float, Decimal],
+    ) -> List[CurrencyQuote]:
+        """Get quotes based on a desired destination amount.
+
+        For each source currency, estimates how much would be needed to obtain
+        the specified amount of the destination currency.
+        """
+        src_currencies, [dest_currency] = await asyncio.gather(
+            self._fetch_currency_prices(source_currencies),
+            self._fetch_currency_prices([destination_currency]),
+        )
+
+        quote_tasks = [
+            self._get_exchange_estimate(
+                source_currency=src_cur,
+                destination_currency=dest_currency,
+                destination_amount=destination_ui_amount,
+            )
+            for src_cur in src_currencies
+        ]
+
+        results = await asyncio.gather(*quote_tasks, return_exceptions=True)
+
+        # Filter successful quotes
+        return [quote for quote in results if not isinstance(quote, BaseException)]

@@ -138,11 +138,7 @@ class CurrencyBase(BaseModel):
 class Currency(CurrencyBase):
     name: str = Field(examples=["Wrapped Ethereum"], description="Currency name")
     ticker: str = Field(examples=["WETH"], description="Currency ticker symbol")
-    decimals: int = Field(
-        examples=[18],
-        description="Number of decimal places",
-        default=(lambda self: self._decimals_for_native()),
-    )
+    decimals: int = Field(examples=[18], description="Number of decimal places")
     image: Optional[str] = Field(
         examples=["https://example.com/logo.png"],
         default=None,
@@ -171,14 +167,9 @@ class Currency(CurrencyBase):
     def __str__(self) -> str:
         return f"{self.ticker} ({self.name})"
 
-    # def _decimals_for_native(self) -> int:
-    #    if self.is_native:
-    #        return self.chain.nativeCurrency.decimals
-    #    return self.decimals
-
-    def ui_amount_to_amount(self, ui_amount: float) -> int:
+    def amount_ui_to_raw(self, ui_amount: Union[float, Decimal]) -> int:
         return int(ui_amount * (10**self.decimals))
 
-    def amount_to_ui_amount(self, amount: int) -> Decimal:
+    def amount_raw_to_ui(self, amount: int) -> Decimal:
         """Convert the smallest unit amount to a user-friendly amount."""
         return Decimal(str(amount)) / Decimal(10) ** self.decimals

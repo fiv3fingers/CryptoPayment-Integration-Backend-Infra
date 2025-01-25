@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Optional, List, Union
 import os
 import aiohttp
@@ -229,7 +230,7 @@ class ChangeNowService:
         self,
         currency_in: Union[Currency, CurrencyBase],
         currency_out: Union[Currency, CurrencyBase],
-        amount: float,
+        amount: Union[float, Decimal],
         exchange_type: ExchangeType = ExchangeType.DIRECT,
     ) -> float:
         """Get exchange estimate."""
@@ -244,7 +245,9 @@ class ChangeNowService:
                         to_currency=cn_currency_out.ticker,
                         from_network=cn_currency_in.network,
                         to_network=cn_currency_out.network,
-                        from_amount=amount,
+                        from_amount=float(
+                            f"{amount:.6f}"
+                        ),  # "5 decimal places precision
                         flow=Flow.STANDARD,
                         type=ExchangeType.DIRECT,
                     )
@@ -257,14 +260,12 @@ class ChangeNowService:
                         to_currency=cn_currency_out.ticker,
                         from_network=cn_currency_in.network,
                         to_network=cn_currency_out.network,
-                        to_amount=amount,
+                        to_amount=float(f"{amount:.6f}"),  # "5 decimal places precision
                         flow=Flow.FIXED,
                         type=ExchangeType.REVERSE,
                     )
                 )
                 return est.from_amount
-
-            raise ValueError(f"Invalid exchange type {exchange_type}")
         except Exception as e:
             logger.error(f"Error estimating exchange: {e}")
             raise
