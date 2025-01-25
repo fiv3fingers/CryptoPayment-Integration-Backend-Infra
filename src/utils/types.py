@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Dict
 
+
 class ChainId(int, Enum):
     ETH = 1
     OPTIMISM = 10
@@ -28,17 +29,19 @@ class ChainId(int, Enum):
     TRON = 30000000000003
     XRPL = 30000000000004
 
+
 class ChainType(str, Enum):
-    EVM = "EVM",
-    SOL = "SOL",
-    SUI = "SUI",
-    TRON = "TRON",
-    UTXO = "UTXO",
+    EVM = ("EVM",)
+    SOL = ("SOL",)
+    SUI = ("SUI",)
+    TRON = ("TRON",)
+    UTXO = ("UTXO",)
+
 
 class ServiceType(str, Enum):
-    ALCHEMY = "ALCHEMY",
-    COINGECKO = "COINGECKO",
-    CHANGENOW = "CHANGENOW",
+    ALCHEMY = ("ALCHEMY",)
+    COINGECKO = ("COINGECKO",)
+    CHANGENOW = ("CHANGENOW",)
 
 
 class AuthHeaderType(Dict):

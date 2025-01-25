@@ -1,4 +1,3 @@
-# models/schemas/quote.py
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
@@ -14,7 +13,7 @@ class CurrencyQuote(BaseModel):
 
 
 class QuoteRequest(BaseModel):
-    address: str        # wallet address of the user
+    address: str  # wallet address of the user
     chain_id: ChainId
 
 

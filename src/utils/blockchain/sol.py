@@ -19,6 +19,7 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
+
 @dataclass
 class Metadata:
     mint: str
@@ -26,20 +27,21 @@ class Metadata:
     symbol: str
     uri: str
 
-async def get_token_balances(session: aiohttp.ClientSession, pubkey: str) -> List[Balance]:
+
+async def get_token_balances(
+    session: aiohttp.ClientSession, pubkey: str
+) -> List[Balance]:
     """
     fetch all token balances for a Solana wallet address.
     """
     filters = [
-        {
-            "dataSize": 165  # Size of token account (bytes)
-        },
+        {"dataSize": 165},  # Size of token account (bytes)
         {
             "memcmp": {
                 "offset": 32,  # Location of owner field
-                "bytes": pubkey  # Wallet to search for
+                "bytes": pubkey,  # Wallet to search for
             }
-        }
+        },
     ]
 
     payload = {
@@ -48,15 +50,14 @@ async def get_token_balances(session: aiohttp.ClientSession, pubkey: str) -> Lis
         "method": "getProgramAccounts",
         "params": [
             "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # TOKEN_PROGRAM_ID
-            {
-                "encoding": "jsonParsed",
-                "filters": filters
-            }
-        ]
+            {"encoding": "jsonParsed", "filters": filters},
+        ],
     }
 
     try:
-        async with session.post(SOLANA_RPC_URL, json=payload, headers=HEADERS) as response:
+        async with session.post(
+            SOLANA_RPC_URL, json=payload, headers=HEADERS
+        ) as response:
             response.raise_for_status()
             data = await response.json()
             result = data.get("result", [])
@@ -68,8 +69,7 @@ async def get_token_balances(session: aiohttp.ClientSession, pubkey: str) -> Lis
                     token_accounts.append(
                         Balance(
                             currency=CurrencyBase(
-                                address=account_data["mint"],
-                                chain_id=ChainId.SOL
+                                address=account_data["mint"], chain_id=ChainId.SOL
                             ),
                             amount=int(account_data["tokenAmount"]["amount"]),
                         )
@@ -84,32 +84,28 @@ async def get_token_balances(session: aiohttp.ClientSession, pubkey: str) -> Lis
         logger.error(f"Failed to get token accounts for {pubkey}: {str(e)}")
         return []
 
+
 async def get_native_balance(session: aiohttp.ClientSession, pubkey: str) -> Balance:
     """
     fetch the native SOL balance for a wallet address.
     """
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "getBalance",
-        "params": [pubkey]
-    }
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [pubkey]}
 
     try:
-        async with session.post(SOLANA_RPC_URL, json=payload, headers=HEADERS) as response:
+        async with session.post(
+            SOLANA_RPC_URL, json=payload, headers=HEADERS
+        ) as response:
             response.raise_for_status()
             data = await response.json()
             return Balance(
                 currency=CurrencyBase.from_chain(ChainId.SOL),
-                amount=data.get("result", {}).get("value", 0)
+                amount=data.get("result", {}).get("value", 0),
             )
 
     except Exception as e:
         logger.error(f"Failed to get balance for {pubkey}: {str(e)}")
-        return Balance(
-            currency=CurrencyBase.from_chain(ChainId.SOL),
-            amount=0
-        )
+        return Balance(currency=CurrencyBase.from_chain(ChainId.SOL), amount=0)
+
 
 async def get_wallet_balances(pubkey: str) -> List[Balance]:
     """
@@ -117,8 +113,7 @@ async def get_wallet_balances(pubkey: str) -> List[Balance]:
     """
     async with aiohttp.ClientSession() as session:
         native_balance, token_balances = await asyncio.gather(
-            get_native_balance(session, pubkey),
-            get_token_balances(session, pubkey)
+            get_native_balance(session, pubkey), get_token_balances(session, pubkey)
         )
-        
+
         return [native_balance] + token_balances

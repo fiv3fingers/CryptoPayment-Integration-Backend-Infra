@@ -1,19 +1,24 @@
-from typing import Dict, Optional, List 
+from typing import Dict, Optional, List
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
 
 class VSCurrency(str, Enum):
     """Supported vs currencies"""
+
     USD = "usd"
     EUR = "eur"
     BTC = "btc"
     ETH = "eth"
 
+
 class PriceParams(BaseModel):
     """Parameters for price requests"""
+
     ids: List[str] = Field(..., description="Coin IDs to query")
-    vs_currencies: List[VSCurrency] = Field(default=[VSCurrency.USD], description="Currencies to convert to")
+    vs_currencies: List[VSCurrency] = Field(
+        default=[VSCurrency.USD], description="Currencies to convert to"
+    )
     include_market_cap: bool = Field(default=False)
     include_24hr_vol: bool = Field(default=False)
     include_24hr_change: bool = Field(default=False)
@@ -23,7 +28,7 @@ class PriceParams(BaseModel):
     def to_query_params(self) -> Dict[str, str]:
         params = {
             "ids": ",".join(self.ids),
-            "vs_currencies": ",".join([c.value for c in self.vs_currencies])
+            "vs_currencies": ",".join([c.value for c in self.vs_currencies]),
         }
         if self.include_market_cap:
             params["include_market_cap"] = "true"
@@ -37,14 +42,17 @@ class PriceParams(BaseModel):
             params["precision"] = str(self.precision)
         return params
 
+
 class Image(BaseModel):
     thumb: str
     small: str
     large: str
 
+
 class Platform(BaseModel):
     decimal_place: Optional[int] = None
     contract_address: Optional[str] = None
+
 
 class Links(BaseModel):
     homepage: List[str] = Field(default_factory=list)
@@ -52,6 +60,7 @@ class Links(BaseModel):
     twitter_screen_name: Optional[str] = None
     telegram_channel_identifier: Optional[str] = None
     subreddit_url: Optional[str] = None
+
 
 class MarketData(BaseModel):
     current_price: Dict[str, float] = Field(default_factory=dict)
@@ -67,6 +76,7 @@ class MarketData(BaseModel):
     circulating_supply: Optional[float] = None
     last_updated: str
 
+
 class TokenInfo(BaseModel):
     id: str
     symbol: str
@@ -81,15 +91,17 @@ class TokenInfo(BaseModel):
     last_updated: str
     links: Links = Field(default_factory=Links)
 
-    @field_validator('detail_platforms', mode='before')
+    @field_validator("detail_platforms", mode="before")
     def ensure_detail_platforms(cls, v):
         """Ensure detail_platforms is properly formatted"""
         if not v:
             return {}
         return v
 
+
 class Price(BaseModel):
     """Price information for a token"""
+
     currency_id: str
     price: float
     vs_currency: VSCurrency

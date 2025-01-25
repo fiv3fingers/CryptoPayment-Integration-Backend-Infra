@@ -2,10 +2,12 @@
 from loguru import logger
 import sys
 from pathlib import Path
-from typing import  Union
+from typing import Union
+
 
 class AppLogger:
     """Centralized logging configuration for the application"""
+
     _instance = None
 
     def __new__(cls):
@@ -17,18 +19,18 @@ class AppLogger:
     def _initialize(self):
         self.log_path = Path("../logs")
         self.log_path.mkdir(exist_ok=True)
-        
+
         # Remove default logger
         logger.remove()
-        
+
         # Add console logger
         logger.add(
             sys.stdout,
             colorize=True,
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>",
-            level="INFO"
+            level="INFO",
         )
-        
+
         # Add file logger
         logger.add(
             self.log_path / "app.log",
@@ -36,9 +38,9 @@ class AppLogger:
             retention="10 days",
             compression="zip",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-            level="INFO"
+            level="INFO",
         )
-        
+
         # Add error log
         logger.add(
             self.log_path / "error.log",
@@ -46,7 +48,7 @@ class AppLogger:
             retention="30 days",
             compression="zip",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
-            level="ERROR"
+            level="ERROR",
         )
 
     @staticmethod
@@ -54,7 +56,9 @@ class AppLogger:
         """Get a logger instance for a specific module"""
         return logger.bind(module=name if name else "app")
 
+
 app_logger = AppLogger()
+
 
 def get_logger(name: Union[str, None] = None):
     return app_logger.get_logger(name)
