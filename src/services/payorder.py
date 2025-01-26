@@ -71,32 +71,6 @@ class PayOrderService(BaseService[PayOrder]):
                     status_code=400, detail="Invalid destination_currency"
                 )
 
-        if req.mode == PayOrderMode.DEPOSIT:
-            if not req.destination_amount:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Destination amount is required for deposit orders",
-                )
-            if req.destination_value_usd:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Destination value USD is not required for deposit orders",
-                )
-
-        if req.mode == PayOrderMode.SALE:
-            if req.destination_amount:
-                if not destination_currency:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Destination currency is required for destination amount",
-                    )
-            if req.destination_value_usd:
-                if req.destination_currency:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Destination value USD is not required for destination currency",
-                    )
-
         # Convert user friendly destinatino amount to int amount
         _destination_amount: int | None = None
         if destination_currency and req.destination_amount:

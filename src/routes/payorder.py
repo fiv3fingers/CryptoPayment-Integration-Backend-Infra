@@ -35,10 +35,8 @@ async def create_payorder(
     try:
         if req.mode == PayOrderMode.DEPOSIT:
             org = get_current_organization(api_key, db)
-        elif req.mode == PayOrderMode.SALE:
+        if req.mode == PayOrderMode.SALE:
             org = validate_authorization_header(auth_header, db)
-        else:
-            raise HTTPException(status_code=400, detail="Invalid mode")
 
         if org is None:
             raise HTTPException(status_code=401, detail="Invalid API Key or Signature")
