@@ -40,12 +40,6 @@ async def create_payorder(
 
         if org is None:
             raise HTTPException(status_code=401, detail="Invalid API Key or Signature")
-        
-        if req.destination_amount and req.destination_value_usd:
-            raise HTTPException(
-                status_code=422,
-                detail="Invalid request, either specify destination_amount or destination_value_usd",
-            )
 
         pay_order_service = PayOrderService(db)
         return await pay_order_service.create_payorder(org.id, req)

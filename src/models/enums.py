@@ -1,14 +1,14 @@
 from enum import Enum
 
 
-class RoutingServiceType(Enum):
+class RoutingServiceType(str, Enum):
     OTHER = "OTHER"
     CHANGENOW = "CHANGENOW"
     CCTP = "CCTP"
     DIRECT_TRANSFER = "DIRECT_TRANSFER"
 
 
-class PayOrderStatus(Enum):
+class PayOrderStatus(str, Enum):
     PENDING = "PENDING"
     AWAITING_PAYMENT = "AWAITING_PAYMENT"
     RECEIVED = "RECEIVED"
@@ -16,6 +16,6 @@ class PayOrderStatus(Enum):
     FAILED = "FAILED"
 
 
-class PayOrderMode(Enum):
+class PayOrderMode(str, Enum):
     SALE = "SALE"
     DEPOSIT = "DEPOSIT"

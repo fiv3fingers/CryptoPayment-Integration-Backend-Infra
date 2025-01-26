@@ -2,6 +2,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
+from src.utils.chains.queries import get_chain_by_id
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
@@ -106,6 +107,8 @@ class CreatePayOrderRequest(BaseModel):
                 "(2) destination_amount + destination_currency, or "
                 "(3) destination_value_usd only"
             )
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
 
         return values
 
@@ -141,6 +144,23 @@ class CreateQuoteRequest(BaseModel):
     evm_chain_ids: Optional[List[ChainId]] = Field(
         default=None, examples=[[ChainId.ETH, ChainId.BASE]], title="EVM Chain IDs"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_field_combinations(cls, values: dict) -> dict:
+        chain_type = values.get("chain_type")
+        evm_chain_ids = values.get("evm_chain_ids")
+
+        if evm_chain_ids:
+            if chain_type != ChainType.EVM:
+                raise ValueError("evm_chain_ids should only be set for EVM chain type")
+
+            for chain_id in evm_chain_ids:
+                chain = get_chain_by_id(chain_id)
+                if chain.chain_type != ChainType.EVM:
+                    raise ValueError(f"Chain {chain_id} is not an EVM chain. ")
+
+        return values
 
 
 class CreateQuoteResponse(BaseModel):
