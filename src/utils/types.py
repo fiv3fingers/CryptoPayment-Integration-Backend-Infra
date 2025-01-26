@@ -31,17 +31,18 @@ class ChainId(int, Enum):
 
 
 class ChainType(str, Enum):
-    EVM = ("EVM",)
-    SOL = ("SOL",)
-    SUI = ("SUI",)
-    TRON = ("TRON",)
-    UTXO = ("UTXO",)
+    EVM = "EVM"
+    SOL = "SOL"
+    SUI = "SUI"
+    TRON = "TRON"
+    UTXO = "UTXO"
 
 
 class ServiceType(str, Enum):
-    ALCHEMY = ("ALCHEMY",)
-    COINGECKO = ("COINGECKO",)
-    CHANGENOW = ("CHANGENOW",)
+    ALCHEMY = "ALCHEMY"
+    COINGECKO = "COINGECKO"
+    CHANGENOW = "CHANGENOW"
+    JUPITER = "JUPITER"
 
 
 class AuthHeaderType(Dict):
