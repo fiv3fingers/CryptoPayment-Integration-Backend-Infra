@@ -1,92 +1,123 @@
-# routes/payorder.py
-from typing import List, Union
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from src.database.dependencies import get_db, get_current_organization, validate_authorization_header
+from src.database.dependencies import (
+    get_db,
+    get_current_organization,
+    validate_authorization_header,
+    authorization_header,
+    api_key_header,
+)
+from src.models.enums import PayOrderMode
 from src.models.schemas.payorder import (
     CreatePayOrderRequest,
-    CreatePayOrderResponse,
+    PayOrderResponse,
     CreateQuoteRequest,
     CreateQuoteResponse,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
-    DepositResponse,
-    SaleResponse,
+    ProcessPaymentResponse,
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
 
 router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
-@router.post("/", response_model=CreatePayOrderResponse)
-async def create_pay_order(
-    #request: Request,  # Inject the Request object
+
+@router.post("/", response_model=PayOrderResponse)
+async def create_payorder(
     req: CreatePayOrderRequest,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    api_key=Depends(api_key_header),
+    auth_header=Depends(authorization_header),
 ):
-    """ API Route for create a new pay-order """
-    pay_order_service = PayOrderService(db)
 
-    return await pay_order_service.create_payorder(org.id, req)
+    try:
+        if req.mode == PayOrderMode.DEPOSIT:
+            org = get_current_organization(api_key, db)
+        elif req.mode == PayOrderMode.SALE:
+            org = validate_authorization_header(auth_header, db)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid mode")
+
+        if org is None:
+            raise HTTPException(status_code=401, detail="Invalid API Key or Signature")
+
+        pay_order_service = PayOrderService(db)
+        return await pay_order_service.create_payorder(org.id, req)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{order_id}/quote", response_model=CreateQuoteResponse)
-async def quote_pay_order(
-    order_id: str,
+@router.post("/{payorder_id}/quote", response_model=CreateQuoteResponse)
+async def quote_payorder(
+    payorder_id: str,
     req: CreateQuoteRequest,
     _: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """ API Route for creating the final quote including deposit details to submit the transaction """
+    """API Route for creating the final quote including deposit details to submit the transaction"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.quote(order_id, req)
+    resp = await pay_order_service.quote(payorder_id, req)
 
     return resp
 
 
-@router.post("/{order_id}/payment-details", response_model=PaymentDetailsResponse)
+@router.post("/{payorder_id}/payment-details", response_model=PaymentDetailsResponse)
 async def create_payment_details(
-    order_id: str,
+    payorder_id: str,
     req: PaymentDetailsRequest,
     _: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """ API Route for creating the final quote including deposit details to submit the transaction """
+    """API Route for creating the final quote including deposit details to submit the transaction"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.payment_details(order_id, req)
+    resp = await pay_order_service.payment_details(payorder_id, req)
 
     return resp
 
 
-
-@router.get("/{order_id}", response_model=Union[DepositResponse, SaleResponse])
-async def get_order(
-    order_id: str,
+@router.get("/{payorder_id}", response_model=PayOrderResponse)
+async def get_payorder(
+    payorder_id: str,
     db: Session = Depends(get_db),
-    _: Organization = Depends(get_current_organization)
+    _: Organization = Depends(get_current_organization),
 ):
-    """ API Route for get a payorder by id """
+    """API Route for get a payorder by id"""
 
     pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(order_id)
+    pay_order = await pay_order_service.get(payorder_id)
     if pay_order is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Order not found"
-        )
+        raise HTTPException(status_code=404, detail="Order not found")
     return pay_order
 
 
-#  Admin Routes
-@router.get("/", response_model=List[Union[DepositResponse, SaleResponse]])
-async def get_orders(
+@router.get("/{payorder_id}/process", response_model=ProcessPaymentResponse)
+async def process_payorder(
+    payorder_id: str,
+    tx_hash: str,
     db: Session = Depends(get_db),
-    org: Organization = Depends(get_current_organization)
+    _: Organization = Depends(get_current_organization),
 ):
-    """ API Route for get all payorders of an organization """
+    """API Route for processing a payorder"""
+
+    pay_order_service = PayOrderService(db)
+    resp = await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
+
+    return resp
+
+
+#  Admin Routes
+@router.get("/", response_model=List[PayOrderResponse])
+async def get_orders(
+    db: Session = Depends(get_db), org: Organization = Depends(get_current_organization)
+):
+    """API Route for get all payorders of an organization"""
 
     # TODO: add pagination
     # TODO: only from dashboard server
@@ -94,5 +125,3 @@ async def get_orders(
     pay_order_service = PayOrderService(db)
     pay_orders = await pay_order_service.get_all(org.id)
     return pay_orders
-
-

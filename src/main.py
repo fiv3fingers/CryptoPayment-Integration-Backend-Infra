@@ -2,10 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from .routes import payorder, quote
+from .routes import payorder
 
 from .config import GZIP_MINIMUM_SIZE
-
 
 app = FastAPI()
 
@@ -19,4 +18,3 @@ app.add_middleware(
 )
 
 app.include_router(payorder.router)
-# app.include_router(quote.router)

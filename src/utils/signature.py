@@ -3,7 +3,8 @@ import time
 
 from src.utils.types import AuthHeaderType
 
-def validate_signature(header_parts:AuthHeaderType, secret:str):
+
+def validate_signature(header_parts: AuthHeaderType, secret: str):
     try:
         # Convert the timestamp to an integer
         client_timestamp = int(header_parts.get("timestamp"))
@@ -24,16 +25,17 @@ def validate_signature(header_parts:AuthHeaderType, secret:str):
 
     return expected_signature == header_parts.get("signature")
 
+
 #  APIKey=5409jmg8qikli06ujhl3jjvokh,signature=2ee76043a90a1d1d10f1a6776dbd39f92a0f59b939d5736008e8332ba3e6963847877978666c3427fd85304cdf3b5b7dcebc3810495352d689ebb40c67993c59,timestamp=1737106896
 def parse_header(auth_header: str) -> AuthHeaderType:
-    parts = auth_header.split(',')
-    
+    parts = auth_header.split(",")
+
     parsed_header: AuthHeaderType = {}
-    
+
     for part in parts:
         # Split each part into key and value by the '=' sign
-        key, value = part.split('=', 1)
+        key, value = part.split("=", 1)
         # Strip any whitespace and add to the dictionary
         parsed_header[key.strip()] = value.strip()
-    
+
     return parsed_header

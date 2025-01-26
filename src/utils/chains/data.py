@@ -6,85 +6,70 @@ CHAIN_DATA_MAP = {
     ChainId.ETH: Chain(
         id=ChainId.ETH,
         name="Ethereum",
-        type=ChainType.EVM,
+        chain_type=ChainType.EVM,
         nativeCurrency=NativeCurrency(
             name="Ether",
             ticker="ETH",
             decimals=18,
             image="https://cryptologos.cc/logos/ethereum-eth-logo.png",
-            aliases={
-                ServiceType.COINGECKO: "ethereum",
-                ServiceType.CHANGENOW: "eth"
-            }
+            aliases={ServiceType.COINGECKO: "ethereum", ServiceType.CHANGENOW: "eth"},
         ),
         image="https://cryptologos.cc/logos/ethereum-eth-logo.png",
         aliases={
             ServiceType.COINGECKO: "ethereum",
             ServiceType.CHANGENOW: "eth",
-            ServiceType.ALCHEMY: "eth-mainnet"
-        }
+            ServiceType.ALCHEMY: "eth-mainnet",
+        },
     ),
     ChainId.BASE: Chain(
         id=ChainId.BASE,
         name="Base",
-        type=ChainType.EVM,
+        chain_type=ChainType.EVM,
         nativeCurrency=NativeCurrency(
             name="Ether",
             ticker="ETH",
             decimals=18,
             image="https://cryptologos.cc/logos/ethereum-eth-logo.png",
-            aliases={
-                ServiceType.COINGECKO: "ethereum",
-                ServiceType.CHANGENOW: "eth"
-            }
+            aliases={ServiceType.COINGECKO: "ethereum", ServiceType.CHANGENOW: "eth"},
         ),
         image="https://basescan.org/assets/base/images/svg/logos/chain-light.svg",
         aliases={
             ServiceType.COINGECKO: "base",
             ServiceType.CHANGENOW: "base",
-            ServiceType.ALCHEMY: "base-mainnet"
-        }
+            ServiceType.ALCHEMY: "base-mainnet",
+        },
     ),
     ChainId.SOL: Chain(
         id=ChainId.SOL,
         name="Solana",
-        type=ChainType.SOL,
+        chain_type=ChainType.SOL,
         nativeCurrency=NativeCurrency(
             name="SOL",
             ticker="SOL",
             decimals=9,
             image="https://cryptologos.cc/logos/solana-sol-logo.png",
-            aliases={
-                ServiceType.COINGECKO: "solana",
-                ServiceType.CHANGENOW: "sol"
-            }
+            aliases={ServiceType.COINGECKO: "solana", ServiceType.CHANGENOW: "sol"},
         ),
         image="https://cryptologos.cc/logos/solana-sol-logo.png",
-        aliases={
-            ServiceType.COINGECKO: "solana",
-            ServiceType.CHANGENOW: "sol"
-        }
+        aliases={ServiceType.COINGECKO: "solana", ServiceType.CHANGENOW: "sol"},
     ),
     ChainId.SUI: Chain(
         id=ChainId.SUI,
         name="Sui",
-        type=ChainType.SUI,
+        chain_type=ChainType.SUI,
         nativeCurrency=NativeCurrency(
             address="0x2::sui::sui",
             name="SUI",
             ticker="SUI",
             decimals=9,
             image="https://cryptologos.cc/logos/sui-sui-logo.png",
-            aliases={
-                ServiceType.CHANGENOW: "sui",
-                ServiceType.COINGECKO: "sui"
-            }
+            aliases={ServiceType.CHANGENOW: "sui", ServiceType.COINGECKO: "sui"},
         ),
         image="https://cryptologos.cc/logos/sui-sui-logo.png",
         aliases={
             ServiceType.ALCHEMY: "sui-mainnet",
             ServiceType.CHANGENOW: "sui",
-            ServiceType.COINGECKO: "sui"
-        }
-    )
+            ServiceType.COINGECKO: "sui",
+        },
+    ),
 }
