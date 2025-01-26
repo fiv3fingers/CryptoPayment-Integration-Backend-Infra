@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import HTTPException
 from datetime import datetime, timedelta
 import pytz
@@ -384,7 +385,7 @@ class PayOrderService(BaseService[PayOrder]):
         )
 
     async def process_payment_txhash(
-        self, payorder_id: str, tx_hash: str
+        self, payorder_id: str, tx_hash: Optional[str]
     ) -> ProcessPaymentResponse:
         """
         Process a payment txhash
@@ -409,10 +410,12 @@ class PayOrderService(BaseService[PayOrder]):
             if status is None:
                 raise HTTPException(status_code=400, detail="Invalid exchange id")
 
-        if status.deposit_hash:
-            if status.deposit_hash.lower() == tx_hash.lower():
-                pay_order.status = PayOrderStatus.RECEIVED
-                pay_order.deposit_tx_hash = tx_hash
+        # PayOrder is awaiting payment and deposit_hash matches => update status to received
+        if pay_order.status == PayOrderStatus.AWAITING_PAYMENT:
+            if status.deposit_hash and tx_hash:
+                if status.deposit_hash.lower() == tx_hash.lower():
+                    pay_order.status = PayOrderStatus.RECEIVED
+                    pay_order.source_transaction_hash = tx_hash
 
         try:
             self.db.add(pay_order)
@@ -424,4 +427,6 @@ class PayOrderService(BaseService[PayOrder]):
                 status_code=500, detail="Error updating PayOrder"
             ) from e
 
-        return ProcessPaymentResponse(deposit_tx_hash=tx_hash, status=pay_order.status)
+        return ProcessPaymentResponse(
+            deposit_tx_hash=pay_order.source_transaction_hash, status=pay_order.status
+        )
