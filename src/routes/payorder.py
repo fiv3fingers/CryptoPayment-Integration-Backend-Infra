@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from src.database.dependencies import (
@@ -98,7 +98,7 @@ async def get_payorder(
 @router.get("/{payorder_id}/process", response_model=ProcessPaymentResponse)
 async def process_payorder(
     payorder_id: str,
-    tx_hash: str,
+    tx_hash: Optional[str] = None,
     db: Session = Depends(get_db),
     _: Organization = Depends(get_current_organization),
 ):

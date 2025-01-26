@@ -206,7 +206,8 @@ class PaymentDetailsResponse(BaseModel):
 class ProcessPaymentResponse(BaseModel):
     """Response model for processing a payment for a PayOrder"""
 
-    deposit_tx_hash: str = Field(
+    deposit_tx_hash: Optional[str] = Field(
+        default=None,
         examples=["0xbc0c9c8646c6cd5e6225ecc8dfc54259bcc586c6c5fe46810f4ea98c6adaae59"]
     )
     status: PayOrderStatus = Field(
