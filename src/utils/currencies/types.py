@@ -168,7 +168,7 @@ class Currency(CurrencyBase):
         return f"{self.ticker} ({self.name})"
 
     def amount_ui_to_raw(self, ui_amount: Union[float, Decimal]) -> int:
-        return int(ui_amount * (10**self.decimals))
+        return int(Decimal(str(ui_amount)) * (10**self.decimals))
 
     def amount_raw_to_ui(self, amount: int) -> Decimal:
         """Convert the smallest unit amount to a user-friendly amount."""
