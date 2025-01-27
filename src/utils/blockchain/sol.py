@@ -4,19 +4,27 @@ from dataclasses import dataclass
 from typing import List
 import aiohttp
 
-from .types import Balance
+from .types import Balance, TransferInfo
 from src.utils.types import ChainId
 from src.utils.currencies.types import CurrencyBase
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 SOLANA_RPC_URL = os.getenv("SOLANA_RPC_URL")
 if SOLANA_RPC_URL is None:
     raise ValueError("SOLANA_RPC_URL is not set")
-
-HEADERS = {
+SOLANA_RPC_HEADERS = {
     "Content-Type": "application/json",
+}
+
+SHYFT_BASE_URL = "https://api.shyft.to/sol/v1"
+SHYFT_API_KEY = os.getenv("SHYFT_API_KEY")
+if SHYFT_API_KEY is None:
+    raise ValueError("SHYFT_API_KEY is not set")
+SHYFT_HEADERS = {
+    "x-api-key": SHYFT_API_KEY,
 }
 
 
@@ -56,7 +64,7 @@ async def get_token_balances(
 
     try:
         async with session.post(
-            SOLANA_RPC_URL, json=payload, headers=HEADERS
+            SOLANA_RPC_URL, json=payload, headers=SOLANA_RPC_HEADERS
         ) as response:
             response.raise_for_status()
             data = await response.json()
@@ -93,7 +101,7 @@ async def get_native_balance(session: aiohttp.ClientSession, pubkey: str) -> Bal
 
     try:
         async with session.post(
-            SOLANA_RPC_URL, json=payload, headers=HEADERS
+            SOLANA_RPC_URL, json=payload, headers=SOLANA_RPC_HEADERS
         ) as response:
             response.raise_for_status()
             data = await response.json()
@@ -117,3 +125,69 @@ async def get_wallet_balances(pubkey: str) -> List[Balance]:
         )
 
         return [native_balance] + token_balances
+
+
+async def get_transfer_details(tx_hash: str) -> TransferInfo:
+    """
+    Get transfer details from a Solana transaction hash using Shyft API.
+
+    Args:
+        tx_hash (str): The transaction signature to analyze
+
+    Raises:
+        ValueError: If no transfer is found or transaction failed
+    """
+    async with aiohttp.ClientSession() as session:
+        try:
+            params = {"network": "mainnet-beta", "txn_signature": tx_hash}
+
+            async with session.get(
+                f"{SHYFT_BASE_URL}/transaction/parsed",
+                headers=SHYFT_HEADERS,
+                params=params,
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                if not data.get("success"):
+                    raise ValueError(
+                        f"API Error: {data.get('message', 'Unknown error')}"
+                    )
+
+                result = data.get("result", {})
+                actions = result.get("actions", [])
+
+                if not actions:
+                    raise ValueError("No actions found in transaction")
+
+                for action in actions:
+                    action_type = action.get("type")
+                    info = action.get("info", {})
+
+                    if action_type == "SOL_TRANSFER":
+                        return TransferInfo(
+                            source_address=info["sender"],
+                            destination_address=info["receiver"],
+                            amount=int(info["amount_raw"]),
+                            currency=CurrencyBase(address=None, chain_id=ChainId.SOL),
+                        )
+                    elif action_type == "TOKEN_TRANSFER":
+                        return TransferInfo(
+                            source_address=info["sender"],
+                            destination_address=info["receiver"],
+                            amount=int(info["amount_raw"]),
+                            currency=CurrencyBase(
+                                address=info["token_address"], chain_id=ChainId.SOL
+                            ),
+                        )
+
+                raise ValueError("No transfer action found in transaction")
+
+        except aiohttp.ClientError as e:
+            logger.error(
+                f"HTTP error when fetching transfer details for {tx_hash}: {str(e)}"
+            )
+            raise ValueError(f"Failed to fetch transaction details: {str(e)}")
+        except Exception as e:
+            logger.error(f"Failed to get transfer details for {tx_hash}: {str(e)}")
+            raise ValueError(f"Error processing transaction: {str(e)}")
