@@ -1,10 +1,11 @@
 from typing import List, Union
 from src.utils.currencies.types import Currency, CurrencyBase
-from src.utils.logging import get_logger
+from src.models.schemas.quote import CurrencyQuote
 from .changenow import ChangeNowService, ExchangeType
+from src.utils.logging import get_logger
 from .coingecko import CoinGeckoService
 from .jupiter import JupiterService
-from src.models.schemas.quote import CurrencyQuote
+from .uniswap import UniswapService
 from ..utils.types import ChainId
 
 logger = get_logger(__name__)
@@ -26,7 +27,7 @@ class QuoteService():
         async with CoinGeckoService() as cg:
             from_currencies = await cg.price(currencies=from_currencies)
             to_currencies = await cg.price(currencies=to_currencies)
-            async with ChangeNowService() as cn, JupiterService() as jp:
+            async with ChangeNowService() as cn, JupiterService() as jp, UniswapService() as us:
                 for from_currency in from_currencies:
                     _quotes = []
                     for to_currency in to_currencies:
@@ -39,9 +40,16 @@ class QuoteService():
                                     amount=amount_out,
                                     exchange_type=ExchangeType.REVERSE)
 
-                            #     SOL vs SOL
+                            #       SOL vs SOL
                             elif from_currency.chain_id == ChainId.SOL and to_currency.chain_id == ChainId.SOL:
                                 est_currency_in_amount = await jp.get_quote(
+                                    input_token=from_currency,
+                                    output_token=to_currency,
+                                    amount=amount_out
+                                )
+                            #       EVM vs EVM
+                            elif from_currency.chain_id == ChainId.ETH and to_currency.chain_id == ChainId.ETH:
+                                est_currency_in_amount = await us.get_quote(
                                     input_token=from_currency,
                                     output_token=to_currency,
                                     amount=amount_out

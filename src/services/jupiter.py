@@ -53,7 +53,7 @@ class JupiterService:
         amount: int,
         slippage_bps: int = 50,
         only_direct_routes: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> float:
 
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()

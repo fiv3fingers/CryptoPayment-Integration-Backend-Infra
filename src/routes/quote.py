@@ -3,13 +3,10 @@
 """
     Gives a quote for a wallet, amount and output token
 """
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from src.database.dependencies import get_db, get_current_organization
-
 from src.models.database_models import Organization
-
 from src.services.organization import OrganizationService
 from src.services.quote import QuoteService
 from src.services.changenow import ChangeNowService
@@ -18,19 +15,19 @@ from src.models.schemas.quote import (
     QuoteResponse, QuoteRequest,
 )
 from src.utils.types import ChainId
-
-
 from datetime import datetime
+from src.utils.uniswap.types import NetworkId
+
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
 @router.post("/usd", response_model=QuoteResponse)
 async def get_quote_usd(
-    chain_id: ChainId,
-    user_address: str,
-    value_usd: float,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db)
+        chain_id: ChainId,
+        user_address: str,
+        value_usd: float,
+        org: Organization = Depends(get_current_organization),
+        db: Session = Depends(get_db)
 ):
     """Get a quote for a specific order"""
     org_service = OrganizationService(db)
@@ -42,7 +39,6 @@ async def get_quote_usd(
     print(f"all_user_currencies: len={len(all_user_currencies)}")
     # user_currencies = [c for c in all_user_currencies if await cn_service.is_supported(c)]
     # print(f"user_currencies (cn_supported): len={len(user_currencies)}")
-
 
     quote_service = QuoteService()
     quotes = await quote_service._get_quote_value_usd(
@@ -66,7 +62,6 @@ async def get_quote_currency(
         # db: Session = Depends(get_db)
 ):
     """Get a quote for a specific order"""
-
 
     all_user_currencies = get_wallet_currencies(user_address, chain_id)
     print(f"all_user_currencies: len={len(all_user_currencies)}")
