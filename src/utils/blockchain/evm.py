@@ -3,12 +3,18 @@ import asyncio
 from typing import List, Optional
 import aiohttp
 
+from web3 import AsyncWeb3, Web3
+from eth_utils.address import to_checksum_address
+from typing import Dict, Optional
+
+from web3.types import TxData
+
 from src.utils.types import ChainId
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
 from src.utils.chains.types import ServiceType
 from src.utils.chains.queries import get_chain_by_id
-from .types import Balance
+from .types import Balance, TransferInfo
 
 logger = get_logger(__name__)
 ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY")
@@ -151,3 +157,121 @@ async def get_wallet_balances(address: str, chain_id: ChainId) -> List[Balance]:
             get_token_balances(session, address, chain_id),
         )
         return [native_balance] + token_balances
+
+
+async def get_web3_client(chain_id: ChainId) -> AsyncWeb3:
+    """Helper function to create Web3 client."""
+    chain = get_chain_by_id(chain_id)
+    alias = chain.get_alias(ServiceType.ALCHEMY)
+    rpc_url: str = f"https://{alias}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+    return AsyncWeb3(Web3.AsyncHTTPProvider(rpc_url))
+
+
+async def get_native_transfer(tx_hash: str, chain_id: ChainId) -> TransferInfo:
+    """Get native transfer details from a transaction hash."""
+    w3 = await get_web3_client(chain_id)
+
+    try:
+        tx = await w3.eth.get_transaction(tx_hash)
+        if tx and tx["value"] > 0:
+            return TransferInfo(
+                source_address=to_checksum_address(tx["from"]),
+                destination_address=to_checksum_address(tx["to"]),
+                amount=tx["value"],
+                currency=CurrencyBase(address=None, chain_id=chain_id),
+            )
+    except Exception as e:
+        logger.error(f"Failed to get native transfer details for {tx_hash}: {str(e)}")
+    raise ValueError("No native transfer found in transaction")
+
+
+async def get_erc20_transfer(tx_hash: str, chain_id: ChainId) -> TransferInfo:
+    """Get ERC20 token transfer details from a transaction hash."""
+    w3 = await get_web3_client(chain_id)
+
+    try:
+        transfer_event_signature = w3.keccak(
+            text="Transfer(address,address,uint256)"
+        ).hex()
+        tx_info = await w3.eth.get_transaction_receipt(tx_hash)
+
+        for log in tx_info["logs"]:
+            if (
+                len(log["topics"]) == 3
+                and log["topics"][0].hex() == transfer_event_signature
+            ):
+                return TransferInfo(
+                    source_address=to_checksum_address(
+                        "0x" + log["topics"][1].hex()[-40:]
+                    ),
+                    destination_address=to_checksum_address(
+                        "0x" + log["topics"][2].hex()[-40:]
+                    ),
+                    amount=int(log["data"].hex(), 16),
+                    currency=CurrencyBase(
+                        address=to_checksum_address(log["address"]), chain_id=chain_id
+                    ),
+                )
+    except Exception as e:
+        logger.error(f"Failed to get ERC20 transfer details for {tx_hash}: {str(e)}")
+    raise ValueError("No ERC20 transfer found in transaction")
+
+
+async def get_transfer_details(tx_hash: str, chain_id: ChainId) -> TransferInfo:
+    """
+    Get transfer details from a transaction hash.
+
+    Args:
+        tx_hash (str): The transaction hash to analyze
+        chain_id (ChainId): The chain ID to query
+
+    Raises:
+        ValueError: If no transfer is found in the transaction
+    """
+    w3 = await get_web3_client(chain_id)
+
+    try:
+        tx = await w3.eth.get_transaction(tx_hash)
+
+        # has value and no input data => native transfer
+        if tx["value"] > 0 and (not tx.get("input") or tx["input"] == "0x"):
+            return TransferInfo(
+                source_address=to_checksum_address(tx["from"]),
+                destination_address=to_checksum_address(tx["to"]),
+                amount=tx["value"],
+                currency=CurrencyBase(address=None, chain_id=chain_id),
+            )
+
+        # If input data => check for ERC20 transfer
+        if tx.get("input") and tx["input"].hex().startswith(
+            "0xa9059cbb"
+        ):  # https://www.4byte.directory/signatures/?bytes4_signature=0xa9059cbb
+            receipt = await w3.eth.get_transaction_receipt(tx_hash)
+            transfer_event_signature = w3.keccak(
+                text="Transfer(address,address,uint256)"
+            ).hex()
+
+            for log in receipt["logs"]:
+                if (
+                    len(log["topics"]) == 3
+                    and log["topics"][0].hex() == transfer_event_signature
+                ):
+                    return TransferInfo(
+                        source_address=to_checksum_address(
+                            "0x" + log["topics"][1].hex()[-40:]
+                        ),
+                        destination_address=to_checksum_address(
+                            "0x" + log["topics"][2].hex()[-40:]
+                        ),
+                        amount=int(log["data"].hex(), 16),
+                        currency=CurrencyBase(
+                            address=to_checksum_address(log["address"]),
+                            chain_id=chain_id,
+                        ),
+                    )
+
+    except Exception as e:
+        logger.error(f"Failed to get transfer details for {tx_hash}: {str(e)}")
+        raise ValueError(f"Error processing transaction: {str(e)}")
+
+    raise ValueError("No valid transfer found in transaction")
