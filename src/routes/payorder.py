@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from src.database.dependencies import (
     get_db,
@@ -14,8 +15,7 @@ from src.models.schemas.payorder import (
     PayOrderResponse,
     CreateQuoteRequest,
     PaymentDetailsRequest,
-    PaymentDetailsResponse,
-    ProcessPaymentResponse,
+    PaymentDetailsResponse
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
@@ -95,19 +95,17 @@ async def get_payorder(
     return pay_order
 
 
-@router.get("/{payorder_id}/process", response_model=ProcessPaymentResponse)
+@router.get("/{payorder_id}/process", response_model=None)
 async def process_payorder(
     payorder_id: str,
-    tx_hash: Optional[str] = None,
+    tx_hash: str,
     db: Session = Depends(get_db),
     _: Organization = Depends(get_current_organization),
 ):
     """API Route for processing a payorder"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
-
-    return resp
+    await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
 
 
 #  Admin Routes
