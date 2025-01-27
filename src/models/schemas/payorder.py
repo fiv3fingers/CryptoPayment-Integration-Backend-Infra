@@ -110,24 +110,24 @@ class CreateQuoteRequest(BaseModel):
 
     wallet_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
     chain_type: ChainType = Field(examples=[ChainType.EVM])
-    evm_chain_ids: Optional[List[ChainId]] = Field(
-        default=None, examples=[[ChainId.ETH, ChainId.BASE]], title="EVM Chain IDs"
+    chain_ids: Optional[List[ChainId]] = Field(
+        default=None, 
+        examples=[[ChainId.ETH, ChainId.BASE]], 
+        title="Chain IDs",
+        description="Granular filtering by ChainId, mainly used for EVM chains"
     )
 
     @model_validator(mode="before")
     @classmethod
     def validate_field_combinations(cls, values: dict) -> dict:
         chain_type = values.get("chain_type")
-        evm_chain_ids = values.get("evm_chain_ids")
+        chain_ids = values.get("chain_ids")
 
-        if evm_chain_ids:
-            if chain_type != ChainType.EVM:
-                raise ValueError("evm_chain_ids should only be set for EVM chain type")
-
-            for chain_id in evm_chain_ids:
+        if chain_ids:
+            for chain_id in chain_ids:
                 chain = get_chain_by_id(chain_id)
-                if chain.chain_type != ChainType.EVM:
-                    raise ValueError(f"Chain {chain_id} is not an EVM chain. ")
+                if chain.chain_type != chain_type:
+                    raise ValueError(f"Chain {chain_id} is not an {chain_type} chain.")
 
         return values
 

@@ -122,7 +122,8 @@ class PayOrderService(BaseService[PayOrder]):
         payorder_id: str
         req: CreateQuoteRequest
             - wallet_address: str
-            - chain_id: ChainId
+            - chain_type: ChainType
+            - chain_ids: List[ChainId]
 
         Returns: QuoteDepositResponse
             source_currencies: List[Currency]
@@ -134,14 +135,14 @@ class PayOrderService(BaseService[PayOrder]):
             raise HTTPException(status_code=404, detail="Order not found")
 
         # Check if payorder status is pending
-        # if pay_order.status != PayOrderStatus.PENDING:
-        #    raise HTTPException(status_code=400, detail="PayOrder status is not pending. Quote cannot be created")
+        if pay_order.status != PayOrderStatus.PENDING:
+           raise HTTPException(status_code=400, detail="PayOrder status is not pending. Quote cannot be created")
 
         # Fetch wallet currencies
         all_wallet_balances = await get_wallet_balances(
             wallet_address=req.wallet_address,
             chain_type=req.chain_type,
-            evm_chain_ids=req.evm_chain_ids,
+            chain_ids=req.chain_ids,
             filter_zero=True,
         )
         # Filter out unsupported currencies
@@ -166,19 +167,23 @@ class PayOrderService(BaseService[PayOrder]):
                 settlement_currencies = [
                     SettlementCurrency.from_dict(c) for c in org.settlement_currencies
                 ]
+                if not settlement_currencies or len(settlement_currencies) == 0:
+                    raise HTTPException(
+                        status_code=400, detail="No settlement currencies found. Please add them in the CoinVoyage Business Dashboard."
+                    )
 
                 async with CoinGeckoService() as cg:
                     destination_currencies = [
                         await cg.get_token_info(c.currency_id)
                         for c in settlement_currencies
                     ]
-                # remove None
+                # filter invalid destination currencies (None)
                 destination_currencies = [
                     c for c in destination_currencies if c is not None
                 ]
                 if not destination_currencies or len(destination_currencies) == 0:
                     raise HTTPException(
-                        status_code=400, detail="Invalid destination_currency"
+                        status_code=400, detail="No valid settlement currencies found. Please add them in the CoinVoyage Business Dashboard."
                     )
 
                 quotes = await quote_service.quote_usd(

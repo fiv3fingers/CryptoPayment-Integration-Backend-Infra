@@ -1,16 +1,17 @@
 import asyncio
 from typing import List, Optional
+
+from src.utils.chains.queries import get_chains_by_type
 from .types import Balance
 from src.utils.types import ChainId, ChainType
 from src.utils.currencies.types import CurrencyBase
-from src.utils.chains.queries import get_chains_by_type
 from . import evm, sol, sui
 
 
 async def get_wallet_balances(
     wallet_address: str,
     chain_type: ChainType,
-    evm_chain_ids: Optional[List[ChainId]] = None,
+    chain_ids: Optional[List[ChainId]] = None,
     filter_zero: bool = True,
 ) -> List[Balance]:
     """
@@ -19,36 +20,36 @@ async def get_wallet_balances(
     Args:
         wallet_address: The address to check balances for
         chain_type: The type of blockchain (EVM, SOL, SUI)
-        evm_chain_ids: Optional specific chains to query (for EVM chains)
+        chain_ids: Optional specific chains to query
         filter_zero: Whether to exclude zero balances from results
 
     Returns:
         A list of Balance objects representing the wallet's holdings
     """
 
-    if chain_type == ChainType.EVM:
-        # if chain ids are provided, fetch balances for those specific chains
-        if evm_chain_ids is None:
-            evm_chain_ids = [c.id for c in get_chains_by_type(ChainType.EVM)]
+    match chain_type:
+        case ChainType.EVM:
+            if chain_ids is None:
+                chain_ids = [c.id for c in get_chains_by_type(ChainType.EVM)]
 
-        balances = await asyncio.gather(
-            *[
-                evm.get_wallet_balances(wallet_address, chain_id=evm_chain_id)
-                for evm_chain_id in evm_chain_ids
-            ]
-        )
-        r = [b for sublist in balances for b in sublist]
+            balances = await asyncio.gather(*[
+                evm.get_wallet_balances(wallet_address, chain_id=chain_id)
+                for chain_id in chain_ids
+            ])
+        case ChainType.SOL:
+            balances = await sol.get_wallet_balances(wallet_address)
+        case ChainType.SUI:
+            balances = await sui.get_wallet_balances(wallet_address)
+        case _:
+            raise NotImplementedError(f"Chain type {chain_type} not supported")
 
-    elif chain_type == ChainType.SOL:
-        r = await sol.get_wallet_balances(wallet_address)
-    elif chain_type == ChainType.SUI:
-        r = await sui.get_wallet_balances(wallet_address)
-    else:
-        raise NotImplementedError(f"Chain type {chain_type} not supported")
-
+    # Flatten the list of balances
+    r = [b for sublist in balances for b in sublist]
+    
     # Filter out zero balances if requested
     if filter_zero:
         r = [b for b in r if b.amount > 0]
+    
     return r
 
 
