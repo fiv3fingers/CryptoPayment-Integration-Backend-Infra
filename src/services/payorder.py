@@ -220,7 +220,7 @@ class PayOrderService(BaseService[PayOrder]):
         return response_source_currencies
 
     async def payment_details(
-        self, payorder_id: str, req: PaymentDetailsRequest
+        self, payorder_id: str, req: PaymentDetailsRequest, org: Organization
     ) -> PaymentDetailsResponse:
         """
         Create payment details
@@ -232,7 +232,6 @@ class PayOrderService(BaseService[PayOrder]):
 
         Returns: PaymentDetailsResponse
             - id: str
-            - mode: PayOrderMode
             - status: PayOrderStatus
             - expires_at: datetime
 
@@ -266,20 +265,14 @@ class PayOrderService(BaseService[PayOrder]):
 
             # destination_currency_id for SALE is not set => payment details based on settlement currencies in organization
             if is_sale and (pay_order.destination_currency_id is None):
-                org = self.db.query(Organization).get(pay_order.organization_id)
-                if org is None:
-                    raise HTTPException(
-                        status_code=404, detail="Organization not found"
-                    )
                 settlement_currencies = [
                     SettlementCurrency.from_dict(c) for c in org.settlement_currencies
                 ]
 
-                async with CoinGeckoService() as cg:
-                    destination_currencies = [
-                        await cg.get_token_info(c.currency_id)
-                        for c in settlement_currencies
-                    ]
+                destination_currencies = [
+                    await cg.get_token_info(c.currency_id)
+                    for c in settlement_currencies
+                ]
                 if not destination_currencies or len(destination_currencies) == 0:
                     raise HTTPException(
                         status_code=400, detail="Invalid settlement_currency"
@@ -373,8 +366,7 @@ class PayOrderService(BaseService[PayOrder]):
             ) from e
 
         return PaymentDetailsResponse(
-            id=pay_order.id,
-            mode=pay_order.mode,
+            pay_order_id=pay_order.id,
             status=pay_order.status,
             expires_at=pay_order.expires_at,
             source_currency=source_currency,

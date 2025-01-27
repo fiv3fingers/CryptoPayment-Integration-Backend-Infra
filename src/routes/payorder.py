@@ -69,13 +69,13 @@ async def quote_payorder(
 async def create_payment_details(
     payorder_id: str,
     req: PaymentDetailsRequest,
-    _: Organization = Depends(get_current_organization),
+    org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db),
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.payment_details(payorder_id, req)
+    resp = await pay_order_service.payment_details(payorder_id, req, org)
 
     return resp
 

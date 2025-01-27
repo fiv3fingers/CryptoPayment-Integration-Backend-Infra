@@ -94,15 +94,10 @@ class PayOrderResponse(BaseModel):
     metadata: Optional[PayOrderMetadata] = Field(
         default_factory=PayOrderMetadata, title="PayOrder metadata"
     )
-    destination_amount: Optional[float] = Field(
-        examples=[0.1], default=None, title="Destination amount (UI amount)"
-    )
-    destination_currency: Optional[Currency] = Field(
-        default=None, title="Destination currency"
-    )
-    destination_value_usd: Optional[float] = Field(
-        examples=[269.42], default=None, title="Destination value in USD"
-    )
+
+    destination_amount: Optional[float] = Field(None, examples=[0.1], title="Destination amount (UI amount)")
+    destination_currency: Optional[Currency] = Field(None, title="Destination currency", description="Currency to receive as result of the payOrder")
+    destination_value_usd: Optional[float] = Field(None, examples=[269.42], title="Destination value in USD", description="Amount of value in USD received by the recipient")
 
 
 class CreateQuoteRequest(BaseModel):
@@ -147,8 +142,7 @@ class PaymentDetailsRequest(BaseModel):
 class PaymentDetailsResponse(BaseModel):
     """Response model for creating payment details for a PayOrder"""
 
-    id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
-    mode: PayOrderMode = Field(examples=[PayOrderMode.DEPOSIT], title="PayOrder mode")
+    pay_order_id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
     status: PayOrderStatus = Field(
         examples=[PayOrderStatus.PENDING], title="PayOrder status"
     )
