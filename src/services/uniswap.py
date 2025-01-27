@@ -5,7 +5,8 @@ from typing import Optional
 from web3 import Web3
 
 from src.utils.logging import get_logger
-from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI
+from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI, \
+    uniswap_v3_Factory_ABI
 from src.utils.uniswap.types import NetworkId, NETWORK_ADDRESS
 
 EVM_RPC_URL = os.getenv("EVM_RPC_URL")
@@ -23,12 +24,17 @@ class UniswapService:
         self.w3 = Web3(
             Web3.HTTPProvider(EVM_RPC_URL))
         self.networkId = network_id
-        self.factory_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][0], abi=uniswap_v2_Factory_ABI)
+        self.v2factory_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][0], abi=uniswap_v2_Factory_ABI)
         self.v2router_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][1], abi=uniswap_v2_router_ABI)
+        self.v3factory_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][2], abi=uniswap_v3_Factory_ABI)
 
     def _get_pair(self, token_a: str, token_b: str) -> str:
-        pair_address = self.factory_contract.functions.getPair(token_a, token_b).call()
+        pair_address = self.v2factory_contract.functions.getPair(token_a, token_b).call()
         return pair_address
+
+    def _get_pool(self, token_a: str, token_b: str) -> str:
+        pool_address = self.v3factory_contract.functions.getPool(token_a, token_b).call()
+        return pool_address
 
     def _get_reserves(self, token_a: str, token_b: str):
         pair_address = self._get_pair(token_a, token_b)
