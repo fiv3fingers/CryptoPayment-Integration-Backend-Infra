@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from fastapi import HTTPException
 from datetime import datetime, timedelta
 import pytz
@@ -10,7 +10,6 @@ from src.models.schemas.payorder import (
     CreatePayOrderRequest,
     PayOrderResponse,
     CreateQuoteRequest,
-    CreateQuoteResponse,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
     ProcessPaymentResponse,
@@ -115,7 +114,7 @@ class PayOrderService(BaseService[PayOrder]):
 
     async def quote(
         self, payorder_id: str, req: CreateQuoteRequest
-    ) -> CreateQuoteResponse:
+    ) -> List[Currency]:
         """
         Get a quote for a pay order
 
@@ -218,9 +217,7 @@ class PayOrderService(BaseService[PayOrder]):
                 )
                 c.ui_balance = float(c.amount_raw_to_ui(c.balance))
 
-            return CreateQuoteResponse(
-                source_currencies=response_source_currencies,
-            )
+        return response_source_currencies
 
     async def payment_details(
         self, payorder_id: str, req: PaymentDetailsRequest

@@ -13,13 +13,13 @@ from src.models.schemas.payorder import (
     CreatePayOrderRequest,
     PayOrderResponse,
     CreateQuoteRequest,
-    CreateQuoteResponse,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
     ProcessPaymentResponse,
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
+from src.utils.currencies.types import Currency
 
 router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
@@ -50,7 +50,7 @@ async def create_payorder(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{payorder_id}/quote", response_model=CreateQuoteResponse)
+@router.post("/{payorder_id}/quote", response_model=List[Currency])
 async def quote_payorder(
     payorder_id: str,
     req: CreateQuoteRequest,

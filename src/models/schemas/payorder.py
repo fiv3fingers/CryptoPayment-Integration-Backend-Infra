@@ -132,11 +132,6 @@ class CreateQuoteRequest(BaseModel):
         return values
 
 
-class CreateQuoteResponse(BaseModel):
-    """Response model for creating a quote for a PayOrder"""
-
-    source_currencies: List[Currency]
-
 
 class PaymentDetailsRequest(BaseModel):
     """Request model for creating payment details for a PayOrder"""
