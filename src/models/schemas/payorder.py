@@ -42,11 +42,13 @@ class CreatePayOrderRequest(BaseModel):
         examples=[0.01],
         default=None,
         title="Destination amount of currency tokens (UI amount)",
+        ge=0,
     )
     destination_value_usd: Optional[float] = Field(
         examples=[269.42],
         default=None,
         title="Destination value in USD (for sale orders)",
+        ge=0,
     )
     destination_receiving_address: Optional[str] = Field(
         examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"],
@@ -63,53 +65,20 @@ class CreatePayOrderRequest(BaseModel):
         dest_value_usd = values.get("destination_value_usd")
         dest_address = values.get("destination_receiving_address")
 
+        if not dest_value_usd and not dest_amount:
+            raise ValueError("destination_value_usd or destination_amount is required")
+
         if mode == PayOrderMode.DEPOSIT:
-            # For deposits: need destination_currency and destination_amount
+            # required dest_address, dest_currency and dest_value_usd or dest_amount
+            if not dest_address:
+                raise ValueError("[Deposit mode]: destination_receiving_address is required")
             if not dest_currency:
-                raise ValueError("destination_currency is required for DEPOSIT mode")
-            if not dest_amount:
-                raise ValueError("destination_amount is required for DEPOSIT mode")
-            if dest_value_usd:
-                raise ValueError(
-                    "destination_value_usd should not be set for DEPOSIT mode"
-                )
-            if not dest_address:
-                raise ValueError(
-                    "destination_receiving_address is required for DEPOSIT mode"
-                )
-
-        elif mode == PayOrderMode.SALE:
-            # Sale has three valid combinations:
-            # 1. Merchant wants X USD in specific currency
-            # 2. Merchant wants X amount of specific currency
-            # 3. Merchant wants X USD in any settlement currency
-
-            if not dest_address:
-                raise ValueError(
-                    "destination_receiving_address is required for SALE mode"
-                )
-
-            # Case 1: X USD in specific currency
-            if dest_value_usd and dest_currency and not dest_amount:
-                return values
-
-            # Case 2: X amount of specific currency
-            if dest_amount and dest_currency and not dest_value_usd:
-                return values
-
-            # Case 3: X USD in any settlement currency
-            if dest_value_usd and not dest_currency and not dest_amount:
-                return values
-
-            raise ValueError(
-                "Invalid combination for SALE mode. Must specify either: "
-                "(1) destination_value_usd + destination_currency, or "
-                "(2) destination_amount + destination_currency, or "
-                "(3) destination_value_usd only"
-            )
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
-
+                raise ValueError("[Deposit mode]: destination_currency is required")
+  
+        if mode == PayOrderMode.SALE:
+           if dest_amount and not dest_currency:
+                raise ValueError("[Sale mode]: destination_amount should be combined with destination_currency")
+      
         return values
 
 
