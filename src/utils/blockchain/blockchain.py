@@ -2,8 +2,8 @@ import asyncio
 from typing import List, Optional
 
 from src.utils.blockchain import utxo
-from src.utils.chains.queries import get_chains_by_type
-from .types import Balance
+from src.utils.chains.queries import get_chain_by_id, get_chains_by_type
+from .types import Balance, TransferInfo
 from src.utils.types import ChainId, ChainType
 from src.utils.currencies.types import CurrencyBase
 from . import evm, sol, sui
@@ -68,7 +68,7 @@ async def get_wallet_balances(
 async def get_wallet_currencies(
     wallet_address: str,
     chain_type: ChainType,
-    evm_chain_ids: Optional[List[ChainId]] = None,
+    chain_ids: Optional[List[ChainId]] = None,
     filter_zero: bool = True,
 ) -> List[CurrencyBase]:
     """
@@ -77,7 +77,7 @@ async def get_wallet_currencies(
     Args:
         wallet_address: The address to check currencies for
         chain_type: The type of blockchain (EVM, SOL, SUI)
-        evm_chain_ids: Optional specific chains to query (for EVM chains)
+        chain_ids: Optional specific chains to query (for EVM chains)
         filter_zero: Whether to exclude currencies with zero balance
 
     Returns:
@@ -86,7 +86,46 @@ async def get_wallet_currencies(
     balances = await get_wallet_balances(
         wallet_address=wallet_address,
         chain_type=chain_type,
-        evm_chain_ids=evm_chain_ids,
+        chain_ids=chain_ids,
         filter_zero=filter_zero,
     )
     return [b.currency for b in balances]
+
+
+async def get_transfer_details(
+    tx_hash: str,
+    chain_id: Optional[ChainId] = None,
+    chain_type: Optional[ChainType] = None,
+) -> TransferInfo:
+    """
+    fetch transaction information for a given transaction hash
+
+    Args:
+        tx_hash: The transaction hash to query
+        chain_type: The type of blockchain (EVM, SOL, SUI)
+        chain_id: The chain ID of the blockchain (required for EVM chains)
+
+    Returns:
+        A TransferInfo object representing the transaction
+    """
+
+    if chain_id is not None:
+        chain_type = get_chain_by_id(chain_id).chain_type
+    if not chain_type:
+        raise ValueError("Either chain_id or chain_type must be provided")
+
+    match chain_type:
+        case ChainType.EVM:
+            if chain_id is None:
+                raise ValueError("Chain ID must be provided for EVM chains")
+            tx_info = await evm.get_transfer_details(tx_hash, chain_id)
+        case ChainType.SOL:
+            tx_info = await sol.get_transfer_details(tx_hash)
+        case ChainType.SUI:
+            # TODO!
+            # tx_info = await sui.get_transfer_details(tx_hash)
+            raise NotImplementedError("SUI chain not supported")
+        case _:
+            raise NotImplementedError(f"Chain type {chain_type} not supported")
+
+    return tx_info

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from fastapi import HTTPException
 from datetime import datetime, timedelta
 import pytz
@@ -12,17 +12,16 @@ from src.models.schemas.payorder import (
     CreateQuoteRequest,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
-    ProcessPaymentResponse,
 )
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
 from src.services.coingecko import CoinGeckoService
-from src.utils.currencies.types import Currency
-from src.utils.blockchain.blockchain import get_wallet_balances
+from src.utils.blockchain.types import TransferInfo
+from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
 
 from .changenow import ChangeNowService
 from .quote import QuoteService
-
 from .base import BaseService
 
 logger = logging.getLogger(__name__)
@@ -112,9 +111,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_value_usd=pay_order.destination_value_usd,
         )
 
-    async def quote(
-        self, payorder_id: str, req: CreateQuoteRequest
-    ) -> List[Currency]:
+    async def quote(self, payorder_id: str, req: CreateQuoteRequest) -> List[Currency]:
         """
         Get a quote for a pay order
 
@@ -129,13 +126,18 @@ class PayOrderService(BaseService[PayOrder]):
         """
 
         # Fetch payorder
-        pay_order: PayOrder | None = self.db.query(PayOrder).get(payorder_id)
+        pay_order: PayOrder = (
+            self.db.query(PayOrder).where(PayOrder.id == payorder_id).first()
+        )
         if pay_order is None:
             raise HTTPException(status_code=404, detail="Order not found")
 
         # Check if payorder status is pending
         if pay_order.status != PayOrderStatus.PENDING:
-           raise HTTPException(status_code=400, detail="PayOrder status is not pending. Quote cannot be created")
+            raise HTTPException(
+                status_code=400,
+                detail="PayOrder status is not pending. Quote cannot be created",
+            )
 
         # Fetch wallet currencies
         all_wallet_balances = await get_wallet_balances(
@@ -168,7 +170,8 @@ class PayOrderService(BaseService[PayOrder]):
                 ]
                 if not settlement_currencies or len(settlement_currencies) == 0:
                     raise HTTPException(
-                        status_code=400, detail="No settlement currencies found. Please add them in the CoinVoyage Business Dashboard."
+                        status_code=400,
+                        detail="No settlement currencies found. Please add them in the CoinVoyage Business Dashboard.",
                     )
 
                 async with CoinGeckoService() as cg:
@@ -182,7 +185,8 @@ class PayOrderService(BaseService[PayOrder]):
                 ]
                 if not destination_currencies or len(destination_currencies) == 0:
                     raise HTTPException(
-                        status_code=400, detail="No valid settlement currencies found. Please add them in the CoinVoyage Business Dashboard."
+                        status_code=400,
+                        detail="No valid settlement currencies found. Please add them in the CoinVoyage Business Dashboard.",
                     )
 
                 quotes = await quote_service.quote_usd(
@@ -246,7 +250,7 @@ class PayOrderService(BaseService[PayOrder]):
         """
 
         # Fetch payorder
-        pay_order = self.db.query(PayOrder).get(payorder_id)
+        pay_order = self.db.query(PayOrder).where(PayOrder.id == payorder_id).first()
         if pay_order is None:
             raise HTTPException(status_code=404, detail="Order not found")
 
@@ -386,9 +390,7 @@ class PayOrderService(BaseService[PayOrder]):
             ),
         )
 
-    async def process_payment_txhash(
-        self, payorder_id: str, tx_hash: Optional[str]
-    ) -> ProcessPaymentResponse:
+    async def process_payment_txhash(self, payorder_id: str, tx_hash: str):
         """
         Process a payment txhash
 
@@ -397,27 +399,43 @@ class PayOrderService(BaseService[PayOrder]):
         """
 
         # Fetch payorder
-        pay_order = self.db.query(PayOrder).get(payorder_id)
+        pay_order = self.db.query(PayOrder).where(PayOrder.id == payorder_id).first()
         if pay_order is None:
             raise HTTPException(status_code=404, detail="Order not found")
 
-        # Check if payorder status is awaiting payment
-        if pay_order.status == PayOrderStatus.PENDING:
-            raise HTTPException(status_code=400, detail="PayOrder is pending")
+        if pay_order.status != PayOrderStatus.AWAITING_PAYMENT:
+            raise HTTPException(
+                status_code=400, detail="PayOrder status is not awaiting payment"
+            )
 
-        exch_id = pay_order.routing_reference
+        # validate tx_hash
+        expected_amount = pay_order.source_amount
+        expected_currency = CurrencyBase.from_id(pay_order.source_currency_id)
+        expected_sender = pay_order.refund_address
+        expected_deposit_address = pay_order.source_deposit_address
 
-        async with ChangeNowService() as cn:
-            status = await cn.get_exchange_status(exch_id)
-            if status is None:
-                raise HTTPException(status_code=400, detail="Invalid exchange id")
+        try:
+            transfer_info: TransferInfo = await get_transfer_details(
+                tx_hash=tx_hash, chain_id=expected_currency.chain.id
+            )
+        except Exception as e:
+            logger.error("Error getting transfer details: %s", e)
+            raise HTTPException(
+                status_code=500, detail="Error getting transfer details"
+            ) from e
 
-        # PayOrder is awaiting payment and deposit_hash matches => update status to received
-        if pay_order.status == PayOrderStatus.AWAITING_PAYMENT:
-            if status.deposit_hash and tx_hash:
-                if status.deposit_hash.lower() == tx_hash.lower():
-                    pay_order.status = PayOrderStatus.RECEIVED
-                    pay_order.source_transaction_hash = tx_hash
+        if (
+            transfer_info.amount != expected_amount
+            or transfer_info.currency != expected_currency
+            or transfer_info.source_address != expected_sender
+            or transfer_info.destination_address != expected_deposit_address
+        ):
+            raise HTTPException(
+                status_code=400, detail="Invalid transaction hash: mismatched details"
+            )
+
+        pay_order.source_transaction_hash = tx_hash
+        pay_order.status = PayOrderStatus.RECEIVED
 
         try:
             self.db.add(pay_order)
@@ -428,7 +446,3 @@ class PayOrderService(BaseService[PayOrder]):
             raise HTTPException(
                 status_code=500, detail="Error updating PayOrder"
             ) from e
-
-        return ProcessPaymentResponse(
-            deposit_tx_hash=pay_order.source_transaction_hash, status=pay_order.status
-        )
