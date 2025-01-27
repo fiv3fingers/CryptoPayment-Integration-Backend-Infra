@@ -41,7 +41,7 @@ class UniswapService:
         print('reserves type', type(reserves))
         return reserves
 
-    def _get_amount_out(self, amount: int, token_a: str, token_b: str):
+    def _get_amount_out(self, amount: float, token_a: str, token_b: str):
         reserves = self._get_reserves(token_a, token_b)
         if not reserves:
             raise ConnectionError(f"Failed to get pair address {reserves}")
