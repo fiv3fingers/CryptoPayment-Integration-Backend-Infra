@@ -26,24 +26,25 @@ class Metadata:
     uri: str
 
 
-async def get_btc_balance(
-    session: aiohttp.ClientSession, pubkey: str
-) -> Balance:
+async def get_btc_balance(session: aiohttp.ClientSession, pubkey: str) -> Balance:
     """
     fetch all token balances for a Bitcoin wallet address.
     """
 
     try:
         async with session.get(
-            "{BTC_API_URL}/{address}/balance".format(BTC_API_URL=BTC_API_URL, address=pubkey),
-            headers=HEADERS
+            "{BTC_API_URL}/{address}/balance".format(
+                BTC_API_URL=BTC_API_URL, address=pubkey
+            ),
+            headers=HEADERS,
         ) as response:
             response.raise_for_status()
             data = await response.json()
             balance = data.get("confirmed", 0)
 
-            return Balance(currency=CurrencyBase(chain_id=ChainId.BTC),
-                            amount=int(balance))
+            return Balance(
+                currency=CurrencyBase(chain_id=ChainId.BTC), amount=int(balance)
+            )
     except Exception as e:
         logger.error(f"Failed to get token accounts for {pubkey}: {str(e)}")
         return Balance(currency=CurrencyBase(chain_id=ChainId.BTC), amount=0)

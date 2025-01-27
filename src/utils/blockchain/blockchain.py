@@ -33,18 +33,24 @@ async def get_wallet_balances(
             if chain_ids is None:
                 chain_ids = [c.id for c in get_chains_by_type(ChainType.UTXO)]
 
-            balances = await asyncio.gather(*[
-                utxo.get_wallet_balances(wallet_address, chain_id=chain_id)
-                for chain_id in chain_ids
-            ])
+            balances = await asyncio.gather(
+                *[
+                    utxo.get_wallet_balances(wallet_address, chain_id=chain_id)
+                    for chain_id in chain_ids
+                ]
+            )
+            balances = [b for sublist in balances for b in sublist]
         case ChainType.EVM:
             if chain_ids is None:
                 chain_ids = [c.id for c in get_chains_by_type(ChainType.EVM)]
 
-            balances = await asyncio.gather(*[
-                evm.get_wallet_balances(wallet_address, chain_id=chain_id)
-                for chain_id in chain_ids
-            ])
+            balances = await asyncio.gather(
+                *[
+                    evm.get_wallet_balances(wallet_address, chain_id=chain_id)
+                    for chain_id in chain_ids
+                ]
+            )
+            balances = [b for sublist in balances for b in sublist]
         case ChainType.SOL:
             balances = await sol.get_wallet_balances(wallet_address)
         case ChainType.SUI:
@@ -52,14 +58,11 @@ async def get_wallet_balances(
         case _:
             raise NotImplementedError(f"Chain type {chain_type} not supported")
 
-    # Flatten the list of balances
-    r = [b for sublist in balances for b in sublist]
-    
     # Filter out zero balances if requested
     if filter_zero:
-        r = [b for b in r if b.amount > 0]
-    
-    return r
+        balances = [b for b in balances if b.amount > 0]
+
+    return balances
 
 
 async def get_wallet_currencies(
