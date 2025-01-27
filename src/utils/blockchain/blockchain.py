@@ -1,6 +1,7 @@
 import asyncio
 from typing import List, Optional
 
+from src.utils.blockchain import utxo
 from src.utils.chains.queries import get_chains_by_type
 from .types import Balance
 from src.utils.types import ChainId, ChainType
@@ -28,6 +29,14 @@ async def get_wallet_balances(
     """
 
     match chain_type:
+        case ChainType.UTXO:
+            if chain_ids is None:
+                chain_ids = [c.id for c in get_chains_by_type(ChainType.UTXO)]
+
+            balances = await asyncio.gather(*[
+                utxo.get_wallet_balances(wallet_address, chain_id=chain_id)
+                for chain_id in chain_ids
+            ])
         case ChainType.EVM:
             if chain_ids is None:
                 chain_ids = [c.id for c in get_chains_by_type(ChainType.EVM)]

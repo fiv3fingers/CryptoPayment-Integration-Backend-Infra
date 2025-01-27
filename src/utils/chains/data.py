@@ -3,6 +3,23 @@ from .types import Chain, ServiceType, NativeCurrency
 from src.utils.types import ChainId, ChainType
 
 CHAIN_DATA_MAP = {
+    ChainId.BTC: Chain(
+        id=ChainId.BTC,
+        name="Bitcoin",
+        chain_type=ChainType.UTXO,
+        nativeCurrency=NativeCurrency(
+            name="Bitcoin",
+            ticker="BTC",
+            decimals=8,
+            image="https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+            aliases={ServiceType.COINGECKO: "bitcoin", ServiceType.CHANGENOW: "btc"},
+        ),
+        image="https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+        aliases={
+            ServiceType.COINGECKO: "bitcoin",
+            ServiceType.CHANGENOW: "btc",
+        },
+    ),
     ChainId.ETH: Chain(
         id=ChainId.ETH,
         name="Ethereum",
