@@ -14,7 +14,8 @@ from src.models.schemas.payorder import (
     PayOrderResponse,
     CreateQuoteRequest,
     PaymentDetailsRequest,
-    PaymentDetailsResponse
+    PaymentDetailsResponse,
+    SingleCurrencyQuote,
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
@@ -49,7 +50,7 @@ async def create_payorder(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post("/{payorder_id}/quote", response_model=List[Currency])
+@router.post("/{payorder_id}/quote", response_model=List[SingleCurrencyQuote])
 async def quote_payorder(
     payorder_id: str,
     req: CreateQuoteRequest,

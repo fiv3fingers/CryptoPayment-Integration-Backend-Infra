@@ -8,6 +8,7 @@ from src.utils.chains.types import Chain
 from src.utils.chains.queries import get_chain_by_id
 
 from decimal import Decimal
+import math
 
 SEPARATOR_SYMBOL: str = "-"
 
@@ -139,37 +140,90 @@ class Currency(CurrencyBase):
     name: str = Field(examples=["Wrapped Ethereum"], description="Currency name")
     ticker: str = Field(examples=["WETH"], description="Currency ticker symbol")
     decimals: int = Field(examples=[18], description="Number of decimal places")
-    image: Optional[str] = Field(
+    image_uri: Optional[str] = Field(
         examples=["https://example.com/logo.png"],
         default=None,
-        description="URL to currency logo",
+        description="URI to currency logo",
     )
     price_usd: Optional[float] = Field(
         examples=[3400.0], default=None, description="Price in USD"
     )
-    amount: Optional[int] = Field(
-        examples=[1000000000000000000],
-        default=None,
-        description="Amount in smallest unit",
-    )
-    ui_amount: Optional[float] = Field(
-        examples=[1.0], default=None, description="Amount in user-friendly unit"
-    )
-    balance: Optional[int] = Field(
-        examples=[1000000000000000000],
-        default=None,
-        description="Balance in smallest unit",
-    )
-    ui_balance: Optional[float] = Field(
-        examples=[1.0], default=None, description="Balance in user-friendly unit"
-    )
+
+    def _calculate_ui_amount_precision(self):
+        """
+        Calculate the UI amount based on the price and raw amount.
+        The precision is to the decimal place which corresponds to the change of around 0.01 $
+        """
+        if not self.price_usd or self.price_usd <= 0:
+            return self.decimals
+
+        one_cent_in_raw = (10 ** self.decimals / self.price_usd) / 100
+        
+        for precision in range(self.decimals + 1):
+            unit = 10 ** (self.decimals - precision)
+            if unit <= one_cent_in_raw:
+                return precision
+
+        
+        return self.decimals
+        
+
+
 
     def __str__(self) -> str:
         return f"{self.ticker} ({self.name})"
 
-    def amount_ui_to_raw(self, ui_amount: Union[float, Decimal]) -> int:
-        return int(Decimal(str(ui_amount)) * (10**self.decimals))
 
-    def amount_raw_to_ui(self, amount: int) -> Decimal:
-        """Convert the smallest unit amount to a user-friendly amount."""
-        return Decimal(str(amount)) / Decimal(10) ** self.decimals
+class CurrencyAmount(BaseModel):
+    ui_amount: float = Field(
+        examples=[0.025], description="Amount in user-friendly unit"
+    )
+    raw_amount: int = Field(
+        examples=[25000000000000000],
+        description="Amount in smallest unit (ui_amount * 10^decimals)",
+    )
+    value_usd: Optional[float] = Field(
+        examples=[100.0], default=None, description="Value in USD"
+    )
+
+    @classmethod
+    def from_amount(cls, currency: Currency, ui_amount: Optional[Union[float, Decimal]] = None, raw_amount: Optional[int] = None):
+        if ui_amount == None and raw_amount == None:
+            raise ValueError("Either ui_amount or raw_amount must be set")
+        if ui_amount != None and raw_amount != None:
+            raise ValueError("Only one of ui_amount or raw_amount can be set")
+
+
+        if raw_amount != None:
+            _precision = currency._calculate_ui_amount_precision()
+            _ui_amount = Decimal(str(raw_amount)) / Decimal(10) ** currency.decimals
+            _ui_amount = float(f"{_ui_amount:.{_precision}f}")
+            _raw_amount = raw_amount
+        if ui_amount != None:
+            _precision = currency._calculate_ui_amount_precision()
+            _raw_amount = int(Decimal(str(ui_amount)) * (10**currency.decimals))
+            _ui_amount = float(f"{ui_amount:.{_precision}f}")
+
+        return cls(
+            ui_amount=_ui_amount,
+            raw_amount=_raw_amount,
+            value_usd=_ui_amount * currency.price_usd if currency.price_usd else None
+        )
+
+
+
+class CurrencyWithAmount(Currency):
+    amount: CurrencyAmount
+
+    @classmethod
+    def from_amount(cls, currency: Currency, ui_amount: Optional[Union[float, Decimal]] = None, raw_amount: Optional[int] = None):
+        return cls(
+            address=currency.address,
+            chain_id=currency.chain_id,
+            name=currency.name,
+            ticker=currency.ticker,
+            decimals=currency.decimals,
+            image_uri=currency.image_uri,
+            price_usd=currency.price_usd,
+            amount=CurrencyAmount.from_amount(currency, ui_amount, raw_amount)
+        )
