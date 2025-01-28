@@ -41,7 +41,7 @@ class JupiterService:
         ttl=900,  # 15 minutes
         cache=Cache.MEMORY,
     )
-    async def get_quote(
+    async def estimate(
         self,
         input_token: str,
         output_token: str,

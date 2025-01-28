@@ -38,22 +38,17 @@ class UniswapService:
 
     def _get_reserves(self, token_a: str, token_b: str):
         pair_address = self._get_pair(token_a, token_b)
-        print('pair_address', pair_address)
         if not pair_address:
             raise ConnectionError(f"Failed to get pair address {pair_address}")
         pair_contract = self.w3.eth.contract(address=pair_address, abi=uniswap_v2_pair_ABI)
         reserves = pair_contract.functions.getReserves().call()
-        print('reserves', reserves)
-        print('reserves type', type(reserves))
         return reserves
 
     def _get_amount_out(self, amount: float, token_a: str, token_b: str):
         reserves = self._get_reserves(token_a, token_b)
         if not reserves:
             raise ConnectionError(f"Failed to get pair address {reserves}")
-        print('reserves', type(reserves[0]))
         expected_out_amount = self.v2router_contract.functions.getAmountOut(amount, reserves[0], reserves[1]).call()
-        print('expected_out_amount', expected_out_amount)
         return expected_out_amount
 
 
