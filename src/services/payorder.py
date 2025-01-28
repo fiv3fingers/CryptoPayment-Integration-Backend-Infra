@@ -35,6 +35,14 @@ class PayOrderService(BaseService[PayOrder]):
     async def get_all(self, org_id: str):
         """Get all pay orders for an organization"""
         return self.db.query(PayOrder).where(PayOrder.organization_id == org_id).all()
+    
+    async def update(self, pay_order: PayOrder):
+        """Update a pay order"""
+        try:
+            return self.db.add(self, pay_order).commit().refresh(pay_order)
+        except Exception as e:
+            logger.error("Error updating PayOrder: %s", e)
+            raise Exception(detail="Error updating PayOrder") from e
 
     async def create_payorder(
         self, org_id: str, req: CreatePayOrderRequest
@@ -91,13 +99,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_receiving_address=req.destination_receiving_address,
         )
 
-        try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
-            raise Exception(detail="Error creating PayOrder") from e
+        self.update(pay_order)
 
         return PayOrderResponse(
             id=str(pay_order.id),
@@ -339,13 +341,7 @@ class PayOrderService(BaseService[PayOrder]):
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
 
-        try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
-            raise Exception(detail="Error creating PayOrder") from e
+        self.update(pay_order)
 
         return PaymentDetailsResponse(
             pay_order_id=pay_order.id,
