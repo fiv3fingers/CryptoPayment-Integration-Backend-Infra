@@ -1,12 +1,13 @@
 import os
 from dataclasses import dataclass
 import aiohttp
-import asyncio
 from typing import List
 from src.utils.logging import get_logger
 from src.utils.currencies.types import CurrencyBase
 from src.utils.chains.types import ChainId
-from .types import Balance
+from .types import Balance, TransferInfo
+
+from typing import Any, Dict, Optional
 
 logger = get_logger(__name__)
 SUI_RPC_URL = os.getenv("SUI_RPC_URL")
@@ -81,17 +82,118 @@ async def get_wallet_balances(address: str) -> List[Balance]:
         return token_balances
 
 
-# Example usage
-if __name__ == "__main__":
+def parse_coin_transfer(
+    transaction: Dict[str, Any], effects: Dict[str, Any]
+) -> Optional[TransferInfo]:
+    """parse a tx from data and effects"""
+    try:
+        tx_data = transaction.get("data", {})
+        sender = tx_data.get("sender")
 
-    async def main():
-        test_address = (
-            "0xc3af1f2ca3dc69a70616fa3707f67a9367f8d01d4b75a40520b931d42241695e"
+        prog_tx = tx_data.get("transaction", {})
+        if prog_tx.get("kind") != "ProgrammableTransaction":
+            return None
+
+        inputs = prog_tx.get("inputs", [])
+        transactions = prog_tx.get("transactions", [])
+
+        recipient = None
+        amount = None
+        is_native_sui = False
+
+        for tx_input in inputs:
+            if tx_input.get("type") == "pure":
+                if tx_input.get("valueType") == "u64":
+                    amount = int(tx_input.get("value", "0"))
+                elif tx_input.get("valueType") == "address":
+                    recipient = tx_input.get("value")
+
+        for tx in transactions:
+            if "SplitCoins" in tx:
+                split_coins = tx["SplitCoins"]
+                if split_coins[0] == "GasCoin":
+                    is_native_sui = True
+                    break
+
+        if not (sender and recipient and amount):
+            return None
+
+        if is_native_sui:
+            currency = CurrencyBase(address=None, chain_id=ChainId.SUI)
+        else:
+            for tx_input in inputs:
+                if (
+                    tx_input.get("type") == "object"
+                    and tx_input.get("objectType") == "immOrOwnedObject"
+                ):
+                    currency = CurrencyBase(
+                        address=tx_input.get("objectId"), chain_id=ChainId.SUI
+                    )
+                    break
+            else:
+                return None
+
+        status = effects.get("status", {}).get("status")
+
+        return TransferInfo(
+            source_address=sender,
+            destination_address=recipient,
+            amount=amount,
+            confirmed=status == "success",
+            currency=currency,
         )
-        balances = await get_wallet_balances(test_address)
-        print(f"Found {len(balances)} token balances for {test_address}")
-        for balance in balances:
-            print(f"\t{balance}")
 
-    # Run the async main function
-    asyncio.run(main())
+    except Exception as e:
+        logger.error(f"Error parsing coin transfer: {str(e)}")
+        return None
+
+
+async def get_transfer_details(tx_hash: str) -> TransferInfo:
+    """fetch transaction information for a given transaction hash"""
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sui_getTransactionBlock",
+                "params": [
+                    tx_hash,
+                    {
+                        "showInput": True,
+                        "showEffects": True,
+                        "showEvents": True,
+                    },
+                ],
+            }
+
+            async with session.post(
+                SUI_RPC_URL, json=payload, headers=HEADERS
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                if "error" in data:
+                    raise ValueError(f"RPC error: {data['error']}")
+
+                result = data.get("result")
+                if not result:
+                    raise ValueError("Transaction not found")
+
+                transfer = parse_coin_transfer(
+                    result.get("transaction", {}), result.get("effects", {})
+                )
+
+                if transfer:
+                    return transfer
+
+                raise ValueError("No transfer found in transaction")
+
+        except aiohttp.ClientError as e:
+            logger.error(
+                f"Network error while getting transfer details for {tx_hash}: {str(e)}"
+            )
+            raise ValueError(f"Network error: {str(e)}")
+        except Exception as e:
+            logger.error(f"Failed to get transfer details for {tx_hash}: {str(e)}")
+            raise ValueError(f"Error processing transaction: {str(e)}")
