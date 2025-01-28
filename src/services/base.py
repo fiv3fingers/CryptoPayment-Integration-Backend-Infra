@@ -3,7 +3,6 @@ from typing import Generic, TypeVar
 import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
 
 T = TypeVar("T")
 
@@ -22,10 +21,9 @@ class BaseService(Generic[T]):
         except IntegrityError as e:
             self.db.rollback()
             logger.error("Database integrity error: %s", str(e))
-            raise HTTPException(
-                status_code=400, detail="Database constraint violation"
+            raise Exception(detail="Database constraint violation"
             ) from e
         except Exception as e:
             self.db.rollback()
             logger.error("Database operation error: %s", str(e))
-            raise HTTPException(status_code=500, detail="Internal server error") from e
+            raise Exception(detail="Internal server error") from e

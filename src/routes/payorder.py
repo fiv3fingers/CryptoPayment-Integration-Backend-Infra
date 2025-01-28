@@ -1,6 +1,5 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from src.database.dependencies import (
     get_db,
@@ -9,7 +8,7 @@ from src.database.dependencies import (
     authorization_header,
     api_key_header,
 )
-from src.models.enums import PayOrderMode
+from src.models.enums import PayOrderMode, PayOrderStatus
 from src.models.schemas.payorder import (
     CreatePayOrderRequest,
     PayOrderResponse,
@@ -39,7 +38,7 @@ async def create_payorder(
             org = validate_authorization_header(auth_header, db)
 
         if org is None:
-            raise HTTPException(status_code=401, detail="Invalid API Key or Signature")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key or Signature")
 
         pay_order_service = PayOrderService(db)
         return await pay_order_service.create_payorder(org.id, req)
@@ -47,20 +46,20 @@ async def create_payorder(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.post("/{payorder_id}/quote", response_model=List[Currency])
 async def quote_payorder(
     payorder_id: str,
     req: CreateQuoteRequest,
-    _: Organization = Depends(get_current_organization),
+    org: Organization = Depends(get_current_organization),
     db: Session = Depends(get_db),
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.quote(payorder_id, req)
+    resp = await pay_order_service.quote(payorder_id, req, org)
 
     return resp
 
@@ -75,7 +74,15 @@ async def create_payment_details(
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
     pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.payment_details(payorder_id, req, org)
+    pay_order = await pay_order_service.get(payorder_id)
+    if pay_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    # Check if payorder status is pending
+    if pay_order.status != PayOrderStatus.PENDING:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Deposit status is not pending, cannot update")
+    
+    resp = await pay_order_service.payment_details(pay_order, req, org)
 
     return resp
 
@@ -91,7 +98,7 @@ async def get_payorder(
     pay_order_service = PayOrderService(db)
     pay_order = await pay_order_service.get(payorder_id)
     if pay_order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     return pay_order
 
 
@@ -105,6 +112,16 @@ async def process_payorder(
     """API Route for processing a payorder"""
 
     pay_order_service = PayOrderService(db)
+    pay_order = await pay_order_service.get(payorder_id)
+    if pay_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PayOrder not found")
+
+    # Validation
+    if pay_order.status != PayOrderStatus.AWAITING_PAYMENT:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not awaiting payment"
+        )
+
     await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
 
 

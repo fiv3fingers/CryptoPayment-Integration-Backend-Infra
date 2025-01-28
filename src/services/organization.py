@@ -3,8 +3,6 @@ from src.models.database_models import Organization, SettlementCurrency
 
 from src.services.base import BaseService
 
-from fastapi import HTTPException
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,7 +18,7 @@ class OrganizationService(BaseService[Organization]):
         """Get settlement currencies for the organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
-            raise HTTPException(status_code=404, detail="Organization not found")
+            raise Exception(detail="Organization not found")
 
         settlement_currencies = [
             SettlementCurrency.from_dict(currency)
