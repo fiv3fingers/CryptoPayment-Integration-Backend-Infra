@@ -126,11 +126,10 @@ class CreateQuoteRequest(BaseModel):
 
         return values
 
-class SingleCurrencyQuote(BaseModel):
+class CurrencyQuote(BaseModel):
     currency: Currency
     balance: CurrencyAmount
     required: CurrencyAmount
-
 
 
 class PaymentDetailsRequest(BaseModel):

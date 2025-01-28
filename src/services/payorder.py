@@ -12,7 +12,7 @@ from src.models.schemas.payorder import (
     CreateQuoteRequest,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
-    SingleCurrencyQuote,
+    CurrencyQuote,
 )
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
@@ -111,7 +111,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_value_usd=pay_order.destination_value_usd,
         )
 
-    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[SingleCurrencyQuote]:
+    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[CurrencyQuote]:
         """
         Get a quote for a pay order
 
@@ -218,7 +218,7 @@ class PayOrderService(BaseService[PayOrder]):
             )
 
             response_source_currencies.append(
-                SingleCurrencyQuote(
+                CurrencyQuote(
                     currency=q.source_currency,
                     required=q.source_currency.amount,
                     balance=CurrencyAmount.from_amount(q.source_currency, raw_amount=raw_balance)
