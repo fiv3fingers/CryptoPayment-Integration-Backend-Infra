@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
 from src.utils.chains.queries import get_chain_by_id
-from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
 
@@ -126,6 +126,11 @@ class CreateQuoteRequest(BaseModel):
 
         return values
 
+class SingleCurrencyQuote(BaseModel):
+    currency: Currency
+    balance: CurrencyAmount
+    required: CurrencyAmount
+
 
 
 class PaymentDetailsRequest(BaseModel):
@@ -151,6 +156,7 @@ class PaymentDetailsResponse(BaseModel):
     )
 
     source_currency: Currency
+    deposit_amount: CurrencyAmount
     deposit_address: str = Field(
         examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"]
     )
@@ -158,4 +164,5 @@ class PaymentDetailsResponse(BaseModel):
 
     # Deposits Only
     destination_currency: Optional[Currency] = Field(default=None)
+    destination_amount: Optional[CurrencyAmount] = Field(default=None)
     destination_receiving_address: Optional[str] = Field(default=None)

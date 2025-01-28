@@ -12,12 +12,13 @@ from src.models.schemas.payorder import (
     CreateQuoteRequest,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
+    SingleCurrencyQuote,
 )
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
 from src.services.coingecko import CoinGeckoService
 from src.utils.blockchain.types import TransferInfo
-from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount
 from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
 
 from .changenow import ChangeNowService
@@ -73,9 +74,10 @@ class PayOrderService(BaseService[PayOrder]):
         # Convert user friendly destinatino amount to int amount
         _destination_amount: int | None = None
         if destination_currency and req.destination_amount:
-            _destination_amount = destination_currency.amount_ui_to_raw(
-                req.destination_amount
+            _destination_amount = CurrencyAmount.from_amount(
+                currency=destination_currency, ui_amount=req.destination_amount
             )
+
 
         # Create PayOrder
         pay_order = PayOrder(
@@ -86,7 +88,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_currency_id=(
                 destination_currency.id if destination_currency else None
             ),
-            destination_amount=_destination_amount if _destination_amount else None,
+            destination_amount=_destination_amount.raw_amount if _destination_amount else None,
             destination_value_usd=req.destination_value_usd,
             destination_receiving_address=req.destination_receiving_address,
         )
@@ -109,7 +111,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_value_usd=pay_order.destination_value_usd,
         )
 
-    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[Currency]:
+    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[SingleCurrencyQuote]:
         """
         Get a quote for a pay order
 
@@ -199,22 +201,32 @@ class PayOrderService(BaseService[PayOrder]):
                         status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid destination_currency"
                     )
 
+                destination_amount = CurrencyAmount.from_amount(
+                    currency=destination_currency, raw_amount=pay_order.destination_amount
+                )
+
                 quotes = await quote_service.quote(
                     source_currencies=wallet_currencies,
                     destination_currency=destination_currency,
-                    destination_ui_amount=destination_currency.amount_raw_to_ui(
-                        int(pay_order.destination_amount)
-                    ),
+                    destination_ui_amount=destination_amount.ui_amount
                 )
 
-            response_source_currencies = [q.source_currency for q in quotes]
-            for c in response_source_currencies:
-                c.balance = next(
-                    b.amount for b in all_wallet_balances if b.currency.id == c.id
+        response_source_currencies = []
+        for q in quotes:
+            raw_balance = next(
+                b.amount for b in all_wallet_balances if b.currency.id == q.source_currency.id
+            )
+
+            response_source_currencies.append(
+                SingleCurrencyQuote(
+                    currency=q.source_currency,
+                    required=q.source_currency.amount,
+                    balance=CurrencyAmount.from_amount(q.source_currency, raw_amount=raw_balance)
                 )
-                c.ui_balance = float(c.amount_raw_to_ui(c.balance))
+            )
 
         return response_source_currencies
+
 
     async def payment_details(
         self, pay_order: PayOrder, req: PaymentDetailsRequest, org: Organization
@@ -290,13 +302,15 @@ class PayOrderService(BaseService[PayOrder]):
                         status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid destination_currency"
                     )
 
+                destination_currency_amount = CurrencyAmount.from_amount(
+                    currency=destination_currency, raw_amount=pay_order.destination_amount
+                )
+
                 # Get quote
                 quotes = await quote_service.quote(
                     source_currencies=[source_currency],
                     destination_currency=destination_currency,
-                    destination_ui_amount=destination_currency.amount_raw_to_ui(
-                        pay_order.destination_amount
-                    ),
+                    destination_ui_amount=destination_currency_amount.ui_amount
                 )
                 quote = min(quotes, key=lambda x: x.source_value_usd)
 
@@ -307,28 +321,17 @@ class PayOrderService(BaseService[PayOrder]):
             exch = await cn.exchange(
                 address=destination_receiving_address,
                 refund_address=req.refund_address,
-                amount=quote.source_currency.ui_amount,
+                amount=quote.source_currency.amount.ui_amount,
                 currency_in=quote.source_currency,
                 currency_out=quote.destination_currency,
             )
 
-        # Update amounts
-        source_currency.ui_amount = exch.from_amount
-        source_currency.amount = source_currency.amount_ui_to_raw(
-            source_currency.ui_amount
-        )
-
-        destination_currency.ui_amount = quote.destination_currency.ui_amount
-        destination_currency.amount = destination_currency.amount_ui_to_raw(
-            destination_currency.ui_amount
-        )
-
         # Update PayOrder
-        pay_order.source_currency_id = source_currency.id
-        pay_order.source_amount = source_currency.amount
+        pay_order.source_currency_id = quote.source_currency.id
+        pay_order.source_amount = quote.source_currency.amount.raw_amount
         pay_order.source_deposit_address = exch.deposit_address
 
-        pay_order.destination_amount = destination_currency.amount
+        pay_order.destination_amount = quote.destination_currency.amount.raw_amount
         pay_order.destination_receiving_address = destination_receiving_address
 
         pay_order.refund_address = req.refund_address
@@ -345,16 +348,18 @@ class PayOrderService(BaseService[PayOrder]):
             self.db.refresh(pay_order)
         except Exception as e:
             logger.error("Error creating PayOrder: %s", e)
-            raise Exception(detail="Error creating PayOrder") from e
+            raise Exception("Error creating PayOrder") from e
 
         return PaymentDetailsResponse(
             pay_order_id=pay_order.id,
             status=pay_order.status,
             expires_at=pay_order.expires_at,
             source_currency=source_currency,
+            deposit_amount=quote.source_currency.amount,
             deposit_address=pay_order.source_deposit_address,
             refund_address=pay_order.refund_address,
             destination_currency=None if is_sale else destination_currency,
+            destination_amount=None if is_sale else quote.destination_currency.amount,
             destination_receiving_address=(
                 None if is_sale else pay_order.destination_receiving_address
             ),
