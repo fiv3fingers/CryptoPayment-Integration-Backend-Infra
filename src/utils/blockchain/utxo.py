@@ -32,9 +32,7 @@ async def get_btc_balance(session: aiohttp.ClientSession, pubkey: str) -> Balanc
 
     try:
         async with session.get(
-            "{BTC_API_URL}/{address}/balance".format(
-                BTC_API_URL=BTC_API_URL, address=pubkey
-            ),
+            f"{BTC_API_URL}/{pubkey}/balance",
             headers=HEADERS,
         ) as response:
             response.raise_for_status()
@@ -49,18 +47,17 @@ async def get_btc_balance(session: aiohttp.ClientSession, pubkey: str) -> Balanc
         return Balance(currency=CurrencyBase(chain_id=ChainId.BTC), amount=0)
 
 
-async def get_wallet_balances(pubkey: str, chain_id: ChainId) -> List[Balance]:
+async def get_wallet_balance(pubkey: str, chain_id: ChainId) -> Balance:
     """
     fetch both native and token balances for a Solana wallet.
     """
     async with aiohttp.ClientSession() as session:
-        balances = []
         match chain_id:
             case ChainId.BTC:
-                balance = await get_btc_balance(session, pubkey)
-                balances.append(balance)
+                return  await get_btc_balance(session, pubkey)
+            case _:
+                raise NotImplementedError(f"[UTXO]: Chain ID {chain_id} not supported")
 
-        return balances
 
 
 async def get_transfer_details(tx_hash: str, chain_id: ChainId) -> UTXOTransferInfo | None:
@@ -88,18 +85,21 @@ async def get_btc_transfer_details(session: aiohttp.ClientSession, tx_hash: str)
     """
 
     async with session.get(
-        "{BTC_API_TX_URL}/{tx_hash}".format(BTC_API_TX_URL=BTC_API_TX_URL, tx_hash=tx_hash),
+        f"{BTC_API_TX_URL}/{tx_hash}",
         headers=HEADERS,
     ) as response:
         # Do not throw on error, might be that the transaction has not reached the the mempool yet
         if response.status >= 400:
             return None
         
+        import json
         data = await response.json()
+        print(json.dumps(data, indent=4))
+
         if data.get("error"):
             raise ValueError(data.get("error"))
         
-        if data.double_spend:
+        if data.get("double_spend", None):
             raise ValueError("Transaction is a double spend")
 
         return UTXOTransferInfo(
@@ -114,3 +114,21 @@ async def get_btc_transfer_details(session: aiohttp.ClientSession, tx_hash: str)
                 for out in data.get("out", [])
             ],
         )
+
+
+async def main():
+    pubkey = "1Q9kLSzEufD2SjZyGEoe69ZEHK6TN8VgPV"
+    tx = "495991e29c6b81bc534149bfe669aa8f02740d76a6705833dc7315f37ac79e11"
+    chain_id = ChainId.BTC
+
+    balance = await get_wallet_balance(pubkey, chain_id)
+    print(f"Balance for {pubkey}: {balance}")
+
+    transfer_info = await get_transfer_details(tx, chain_id)
+    print(f"Transfer info for {tx}: {transfer_info}")
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+

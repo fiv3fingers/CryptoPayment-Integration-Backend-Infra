@@ -6,7 +6,9 @@ class Balance(NamedTuple):
     currency: CurrencyBase
     amount: int
 
-class TransferInfo(Balance):
+class TransferInfo(NamedTuple):
+    currency: CurrencyBase
+    amount: int
     source_address: str
     destination_address: str
     confirmed: bool
