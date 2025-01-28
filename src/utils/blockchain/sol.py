@@ -178,6 +178,7 @@ async def get_transfer_details(tx_hash: str) -> TransferInfo:
                             source_address=parsed["source"],
                             destination_address=parsed["destination"],
                             amount=parsed["lamports"],
+                            confirmed=result["meta"]["err"] is None,
                             currency=CurrencyBase(address=None, chain_id=ChainId.SOL),
                         )
 

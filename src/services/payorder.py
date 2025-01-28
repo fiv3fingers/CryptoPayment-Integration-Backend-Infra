@@ -16,7 +16,9 @@ from src.models.schemas.payorder import (
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
 from src.services.coingecko import CoinGeckoService
-from src.utils.blockchain.types import TransferInfo
+from src.utils.blockchain.types import TransferInfoType, TransferInfo, UTXOTransferInfo
+from src.utils.blockchain.validate import validate_transfer_info, validate_utxo_transfer_info
+from src.utils.chains.queries import get_chain_by_id
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
 
@@ -370,22 +372,33 @@ class PayOrderService(BaseService[PayOrder]):
         expected_sender = pay_order.refund_address
         expected_deposit_address = pay_order.source_deposit_address
 
+        chain_id = expected_currency.chain.id
+        chain_type = get_chain_by_id(chain_id).chain_type
+        if not chain_type:
+            raise ValueError("Either chain_id or chain_type must be provided")
+
         try:
-            transfer_info: TransferInfo = await get_transfer_details(
-                tx_hash=tx_hash, chain_id=expected_currency.chain.id
+            transfer_info: TransferInfoType | None = await get_transfer_details(
+                tx_hash=tx_hash, 
+                chain_id=chain_id,
+                chain_type=chain_type
             )
         except Exception as e:
             logger.error("Error getting transfer details: %s", e)
             raise Exception(detail="Error getting transfer details") from e
-
+        
         pay_order.source_transaction_hash = tx_hash
-        pay_order.status = PayOrderStatus.RECEIVED
+        if transfer_info is None or transfer_info.confirmed is False:
+            pay_order.status = PayOrderStatus.AWAITING_CONFIRMATION
 
         try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error updating PayOrder: %s", e)
-            raise Exception(detail="Error updating PayOrder") from e
+            if isinstance(transfer_info, TransferInfo):
+                validate_transfer_info(transfer_info, expected_amount, expected_currency, expected_sender, expected_deposit_address)
+            if isinstance(transfer_info, UTXOTransferInfo):
+                validate_utxo_transfer_info(transfer_info, expected_amount, expected_currency, expected_sender, expected_deposit_address)
 
+                pay_order.status = PayOrderStatus.EXECUTING_ORDER
+        except Exception as e:
+            pay_order.status = PayOrderStatus.FAILED
+    
+        return pay_order
