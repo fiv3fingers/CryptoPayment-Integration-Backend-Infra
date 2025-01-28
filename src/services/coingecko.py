@@ -249,7 +249,7 @@ class CoinGeckoService:
                     name=token_info.name,
                     ticker=token_info.symbol,
                     decimals=decimals,
-                    image=token_info.image.small,
+                    image_uri=token_info.image.small,
                 )
             except Exception as e:
                 logger.error(f"Error creating Currency object: {e}")

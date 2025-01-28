@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from src.utils.currencies.helpers import to_currency_base
-from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyBase, CurrencyWithAmount
 from src.utils.logging import get_logger
 from src.services.changenow import ChangeNowService, ExchangeType
 from src.services.coingecko import CoinGeckoService
-from src.utils.types import ChainId
 
 logger = get_logger(__name__)
 
@@ -19,33 +18,33 @@ CurrencyType = TypeVar("CurrencyType", str, CurrencyBase, Currency)
 class CurrencyQuote:
     """Represents a currency exchange quote."""
 
-    source_currency: Currency
-    destination_currency: Currency
+    source_currency: CurrencyWithAmount
+    destination_currency: CurrencyWithAmount
 
     @property
     def source_value_usd(self) -> float:
         """Calculate the USD value of the source amount."""
         if not self.source_currency.price_usd:
             raise ValueError(f"Price not available for {self.source_currency.id}")
-        if not self.source_currency.ui_amount:
+        if not self.source_currency.amount.ui_amount:
             raise ValueError("Source amount not set")
-        return self.source_currency.ui_amount * self.source_currency.price_usd
+        return self.source_currency.amount.ui_amount * self.source_currency.price_usd
 
     @property
     def destination_value_usd(self) -> float:
         """Calculate the USD value of the destination amount."""
         if not self.destination_currency.price_usd:
             raise ValueError(f"Price not available for {self.destination_currency.id}")
-        if not self.destination_currency.ui_amount:
+        if not self.destination_currency.amount.ui_amount:
             raise ValueError("Destination amount not set")
-        return self.destination_currency.ui_amount * self.destination_currency.price_usd
+        return self.destination_currency.amount.ui_amount * self.destination_currency.price_usd
 
     def __str__(self) -> str:
         """Human-readable representation of the quote."""
         return (
-            f"{self.source_currency.ui_amount} {self.source_currency.ticker} "
+            f"{self.source_currency.amount.ui_amount} {self.source_currency.ticker} "
             f"({self.source_value_usd:.2f} USD) → "
-            f"{self.destination_currency.ui_amount} {self.destination_currency.ticker} "
+            f"{self.destination_currency.amount.ui_amount} {self.destination_currency.ticker} "
             f"({self.destination_value_usd:.2f} USD)"
         )
 
@@ -100,17 +99,20 @@ class QuoteService:
                 exchange_type=ExchangeType.REVERSE,
             )
 
-            # Update currency objects with amounts
-            source_currency.ui_amount = source_amount
-            source_currency.amount = source_currency.amount_ui_to_raw(source_amount)
-            destination_currency.ui_amount = float(destination_amount)
-            destination_currency.amount = destination_currency.amount_ui_to_raw(
-                destination_amount
+
+            source_currency_with_amount = CurrencyWithAmount.from_amount(
+                currency=source_currency, ui_amount=source_amount
             )
 
+            destination_currency_with_amount = CurrencyWithAmount.from_amount(
+                currency=destination_currency, ui_amount=destination_amount
+            )
+
+
+
             return CurrencyQuote(
-                source_currency=source_currency,
-                destination_currency=destination_currency,
+                source_currency=source_currency_with_amount,
+                destination_currency=destination_currency_with_amount,
             )
 
         except Exception as e:
