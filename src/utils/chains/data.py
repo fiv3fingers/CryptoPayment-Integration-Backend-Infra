@@ -64,10 +64,10 @@ CHAIN_DATA_MAP = {
             name="BNB",
             ticker="BNB",
             decimals=18,
-            image="https://cryptologos.cc/logos/bnb-bnb-logo.png",
+            image_uri="https://cryptologos.cc/logos/bnb-bnb-logo.png",
             aliases={ServiceType.COINGECKO: "binancecoin", ServiceType.CHANGENOW: "bnb"},
         ),
-        image="https://cryptologos.cc/logos/bnb-bnb-logo.png",
+        image_uri="https://cryptologos.cc/logos/bnb-bnb-logo.png",
         aliases={
             ServiceType.COINGECKO: "binancecoin",
             ServiceType.CHANGENOW: "bnb",
