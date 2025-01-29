@@ -178,6 +178,7 @@ async def get_transfer_details(tx_hash: str) -> TransferInfo:
                             source_address=parsed["source"],
                             destination_address=parsed["destination"],
                             amount=parsed["lamports"],
+                            confirmed=result["meta"]["err"] is None,
                             currency=CurrencyBase(address=None, chain_id=ChainId.SOL),
                         )
 
@@ -255,6 +256,7 @@ async def get_transfer_details(tx_hash: str) -> TransferInfo:
                     source_address=source_address,
                     destination_address=destination_address,
                     amount=amount,
+                    confirmed=result["meta"]["err"] is None,
                 )
 
         except Exception as e:

@@ -17,8 +17,12 @@ from src.models.schemas.payorder import (
 
 from src.models.database_models import SettlementCurrency, PayOrder, Organization
 from src.services.coingecko import CoinGeckoService
-from src.utils.blockchain.types import TransferInfo
-from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount
+
+from src.utils.blockchain.types import TransferInfoType, TransferInfo, UTXOTransferInfo
+from src.utils.blockchain.validate import validate_transfer_info, validate_utxo_transfer_info
+from src.utils.chains.queries import get_chain_by_id
+from src.utils.currencies.types import Currency, CurrencyBase
+
 from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
 
 from .changenow import ChangeNowService
@@ -36,6 +40,14 @@ class PayOrderService(BaseService[PayOrder]):
     async def get_all(self, org_id: str):
         """Get all pay orders for an organization"""
         return self.db.query(PayOrder).where(PayOrder.organization_id == org_id).all()
+    
+    async def update(self, pay_order: PayOrder):
+        """Update a pay order"""
+        try:
+            return self.db.add(self, pay_order).commit().refresh(pay_order)
+        except Exception as e:
+            logger.error("Error updating PayOrder: %s", e)
+            raise Exception(detail="Error updating PayOrder") from e
 
     async def create_payorder(
         self, org_id: str, req: CreatePayOrderRequest
@@ -93,13 +105,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_receiving_address=req.destination_receiving_address,
         )
 
-        try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
-            raise Exception(detail="Error creating PayOrder") from e
+        self.update(pay_order)
 
         return PayOrderResponse(
             id=str(pay_order.id),
@@ -342,13 +348,7 @@ class PayOrderService(BaseService[PayOrder]):
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
 
-        try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error creating PayOrder: %s", e)
-            raise Exception("Error creating PayOrder") from e
+        self.update(pay_order)
 
         return PaymentDetailsResponse(
             pay_order_id=pay_order.id,
@@ -379,22 +379,33 @@ class PayOrderService(BaseService[PayOrder]):
         expected_sender = pay_order.refund_address
         expected_deposit_address = pay_order.source_deposit_address
 
+        chain_id = expected_currency.chain.id
+        chain_type = get_chain_by_id(chain_id).chain_type
+        if not chain_type:
+            raise ValueError("Either chain_id or chain_type must be provided")
+
         try:
-            transfer_info: TransferInfo = await get_transfer_details(
-                tx_hash=tx_hash, chain_id=expected_currency.chain.id
+            transfer_info: TransferInfoType | None = await get_transfer_details(
+                tx_hash=tx_hash, 
+                chain_id=chain_id,
+                chain_type=chain_type
             )
         except Exception as e:
             logger.error("Error getting transfer details: %s", e)
             raise Exception(detail="Error getting transfer details") from e
-
+        
         pay_order.source_transaction_hash = tx_hash
-        pay_order.status = PayOrderStatus.RECEIVED
+        if transfer_info is None or transfer_info.confirmed is False:
+            pay_order.status = PayOrderStatus.AWAITING_CONFIRMATION
 
         try:
-            self.db.add(pay_order)
-            self.db.commit()
-            self.db.refresh(pay_order)
-        except Exception as e:
-            logger.error("Error updating PayOrder: %s", e)
-            raise Exception(detail="Error updating PayOrder") from e
+            if isinstance(transfer_info, TransferInfo):
+                validate_transfer_info(transfer_info, expected_amount, expected_currency, expected_sender, expected_deposit_address)
+            if isinstance(transfer_info, UTXOTransferInfo):
+                validate_utxo_transfer_info(transfer_info, expected_amount, expected_currency, expected_sender, expected_deposit_address)
 
+                pay_order.status = PayOrderStatus.EXECUTING_ORDER
+        except Exception as e:
+            pay_order.status = PayOrderStatus.FAILED
+    
+        return pay_order
