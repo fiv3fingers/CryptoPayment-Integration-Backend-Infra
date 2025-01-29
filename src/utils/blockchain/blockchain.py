@@ -2,8 +2,8 @@ import asyncio
 from typing import List, Optional
 
 from src.utils.blockchain import utxo
-from src.utils.chains.queries import get_chain_by_id, get_chains_by_type
-from .types import Balance, TransferInfo
+from src.utils.chains.queries import get_chains_by_type
+from .types import Balance, TransferInfoType
 from src.utils.types import ChainId, ChainType
 from src.utils.currencies.types import CurrencyBase
 from . import evm, sol, sui
@@ -94,9 +94,9 @@ async def get_wallet_currencies(
 
 async def get_transfer_details(
     tx_hash: str,
+    chain_type: ChainType,
     chain_id: Optional[ChainId] = None,
-    chain_type: Optional[ChainType] = None,
-) -> TransferInfo:
+) -> TransferInfoType | None:
     """
     fetch transaction information for a given transaction hash
 
@@ -109,11 +109,6 @@ async def get_transfer_details(
         A TransferInfo object representing the transaction
     """
 
-    if chain_id is not None:
-        chain_type = get_chain_by_id(chain_id).chain_type
-    if not chain_type:
-        raise ValueError("Either chain_id or chain_type must be provided")
-
     match chain_type:
         case ChainType.EVM:
             if chain_id is None:
@@ -125,6 +120,10 @@ async def get_transfer_details(
             # TODO!
             # tx_info = await sui.get_transfer_details(tx_hash)
             raise NotImplementedError("SUI chain not supported")
+        case ChainType.UTXO:
+            if chain_id is None:
+                raise ValueError("Chain ID must be provided for UTXO chains")
+            tx_info = await utxo.get_transfer_details(tx_hash, chain_id)
         case _:
             raise NotImplementedError(f"Chain type {chain_type} not supported")
 

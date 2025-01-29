@@ -232,6 +232,7 @@ async def get_transfer_details(tx_hash: str, chain_id: ChainId) -> TransferInfo:
                 source_address=to_checksum_address(tx["from"]),
                 destination_address=to_checksum_address(tx["to"]),
                 amount=tx["value"],
+                confirmed=tx["blockNumber"] is not None,
                 currency=CurrencyBase(address=None, chain_id=chain_id),
             )
 
@@ -257,6 +258,7 @@ async def get_transfer_details(tx_hash: str, chain_id: ChainId) -> TransferInfo:
                             "0x" + log["topics"][2].hex()[-40:]
                         ),
                         amount=int(log["data"].hex(), 16),
+                        confirmed=receipt["blockNumber"] is not None,
                         currency=CurrencyBase(
                             address=to_checksum_address(log["address"]),
                             chain_id=chain_id,
