@@ -19,7 +19,6 @@ from src.models.schemas.payorder import (
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
-from src.utils.currencies.types import Currency
 
 router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
@@ -123,7 +122,7 @@ async def process_payorder(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not awaiting payment"
         )
 
-    pay_order = await pay_order_service.process_payment_txhash(payorder_id, tx_hash)
+    pay_order = await pay_order_service.process_payment_txhash(pay_order, tx_hash)
     await pay_order_service.update(pay_order)
 
     if pay_order.status == PayOrderStatus.AWAITING_CONFIRMATION:

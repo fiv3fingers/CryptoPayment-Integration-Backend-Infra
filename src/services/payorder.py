@@ -290,12 +290,15 @@ class PayOrderService(BaseService[PayOrder]):
                 )
                 quote = min(quotes, key=lambda x: x.source.amount.value_usd)
 
-                destination_currency = quote.destination.currency
-                destination_amount = quote.destination.amount
+                #destination_currency = quote.destination.currency
+                #destination_amount = quote.destination.amount
+
+                src = quote.source
+                dest = quote.destination
                 destination_receiving_address = next(
                     c.address
                     for c in settlement_currencies
-                    if c.currency_id == destination_currency.id
+                    if c.currency_id == dest.currency.id
                 )
 
 
@@ -320,35 +323,37 @@ class PayOrderService(BaseService[PayOrder]):
                 )
                 quote = min(quotes, key=lambda q: q.source.amount.value_usd)
 
+                #destination_amount = destination_currency.amount(raw_amount=pay_order.destination_amount)
+
+                src = quote.source
+                dest = quote.destination
                 destination_receiving_address = pay_order.destination_receiving_address
-                destination_amount = destination_currency.amount(raw_amount=pay_order.destination_amount)
+
 
         # Create ChangeNow exchange
         async with ChangeNowService() as cn:
             exch = await cn.exchange(
                 address=destination_receiving_address,
                 refund_address=req.refund_address,
-                source_currency=quote.source.currency,
-                destination_currency=destination_currency,
-                amount=destination_amount,
+                source_currency=src.currency,
+                destination_currency=dest.currency,
+                amount=dest.amount,
                 exchange_type=ExchangeType.REVERSE
             )
 
-        source_amount = source_currency.amount(ui_amount=exch.from_amount)
 
         # Update PayOrder
-        pay_order.source_currency_id = quote.source.currency.id
-        pay_order.source_amount = source_amount.raw_amount
+        pay_order.source_currency_id = exch.source.currency.id
+        pay_order.source_amount = exch.source.amount.raw_amount
         pay_order.source_deposit_address = exch.deposit_address
-
-        pay_order.destination_amount = destination_amount.raw_amount
-        pay_order.destination_receiving_address = destination_receiving_address
-
         pay_order.refund_address = exch.refund_address
+
+        pay_order.destination_currency_id = exch.destination.currency.id
+        pay_order.destination_amount = exch.destination.amount.raw_amount
+        pay_order.destination_receiving_address = exch.receiving_address
 
         pay_order.routing_reference = exch.id
         pay_order.routing_service = RoutingServiceType.CHANGENOW
-
         pay_order.status = PayOrderStatus.AWAITING_PAYMENT
         pay_order.expires_at = datetime.now(pytz.utc) + timedelta(minutes=15)
 
@@ -358,14 +363,14 @@ class PayOrderService(BaseService[PayOrder]):
             pay_order_id=pay_order.id,
             status=pay_order.status,
             expires_at=pay_order.expires_at,
-            source_currency=source_currency,
-            deposit_amount=source_amount,
-            deposit_address=pay_order.source_deposit_address,
-            refund_address=pay_order.refund_address,
-            destination_currency=None if is_sale else destination_currency,
-            destination_amount=None if is_sale else quote.destination.amount,
+            source_currency=exch.source.currency,
+            deposit_amount=exch.source.amount,
+            deposit_address=exch.deposit_address,
+            refund_address=exch.refund_address,
+            destination_currency=None if is_sale else exch.destination.currency,
+            destination_amount=None if is_sale else exch.destination.amount,
             destination_receiving_address=(
-                None if is_sale else pay_order.destination_receiving_address
+                None if is_sale else exch.receiving_address
             ),
         )
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from src.utils.currencies.helpers import to_currency_base
-from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount, Quote
 from src.utils.logging import get_logger
 from src.services.changenow import ChangeNowService, ExchangeType
 from src.services.coingecko import CoinGeckoService
@@ -12,17 +12,6 @@ from src.services.coingecko import CoinGeckoService
 logger = get_logger(__name__)
 
 CurrencyType = TypeVar("CurrencyType", str, CurrencyBase, Currency)
-
-# those classes are used to represent the data that is returned by the quote service.
-# It could be a dict but we use NamedTuple for better type checking and readability.
-# we never use those types for the response of the API, we use only the pydantic models.
-class CurrencyWithAmount(NamedTuple):
-        currency: Currency
-        amount: CurrencyAmount
-
-class Quote(NamedTuple):
-    source: CurrencyWithAmount
-    destination: CurrencyWithAmount
 
 
 class QuoteService:

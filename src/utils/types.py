@@ -49,3 +49,5 @@ class AuthHeaderType(Dict):
     APIKey: str
     signature: str
     timestamp: str
+
+
