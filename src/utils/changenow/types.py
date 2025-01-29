@@ -1,7 +1,10 @@
 from enum import Enum
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
+
+
+
 
 
 class Flow(str, Enum):
@@ -125,8 +128,7 @@ class Estimate(BaseRequest):
     deposit_fee: Optional[float] = None
     withdrawal_fee: Optional[float] = None
 
-
-class Exchange(BaseRequest):
+class ExchangeResponse(BaseRequest):
     """Exchange transaction"""
 
     id: str

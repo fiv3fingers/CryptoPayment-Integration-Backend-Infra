@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, computed_field, field_validator, ConfigDict, model_validator
-from typing import Optional, Union, ClassVar
+from typing import NamedTuple, Optional, Union, ClassVar
 from decimal import Decimal
 
 from src.utils.types import ChainId
@@ -252,4 +252,26 @@ class Currency(CurrencyBase):
             return self._amount_from_usd(value_usd, precision)
 
         raise ValueError("One of ui_amount, raw_amount, or value_usd must be provided")
+
+
+
+"""
+TODO: Find a fitting place for the following classes
+"""
+class CurrencyWithAmount(NamedTuple):
+    currency: Currency
+    amount: CurrencyAmount
+
+class Quote(NamedTuple):
+    source: CurrencyWithAmount
+    destination: CurrencyWithAmount
+
+class Exchange(NamedTuple):
+    source: CurrencyWithAmount
+    destination: CurrencyWithAmount
+    refund_address: str
+    deposit_address: str
+    receiving_address: str
+    id: str
+
 

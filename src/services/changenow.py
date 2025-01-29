@@ -1,17 +1,16 @@
-from decimal import Decimal
 from typing import Optional, List, Union
 import os
 import aiohttp
 from aiocache import Cache, cached
 
-from src.utils.types import ChainId, ServiceType
-from src.utils.currencies.types import Currency, CurrencyBase, CurrencyAmount
+from src.utils.types import ServiceType
+from src.utils.currencies.types import Currency, CurrencyBase, CurrencyAmount, CurrencyWithAmount, Exchange
 from src.utils.changenow.types import (
     ChangeNowCurrency,
     EstimateRequest,
     Estimate,
     ExchangeRequest,
-    Exchange,
+    ExchangeResponse,
     ExchangeType,
     ExchangeStatus,
     Flow,
@@ -19,7 +18,10 @@ from src.utils.changenow.types import (
 from ..utils.logging import get_logger
 
 
+
 logger = get_logger(__name__)
+
+
 
 
 def get_currencies_cache_key(
@@ -139,7 +141,7 @@ class ChangeNowService:
             logger.error(f"Error creating estimate: {e}")
             raise
 
-    async def _create_exchange(self, request: ExchangeRequest) -> Exchange:
+    async def _create_exchange(self, request: ExchangeRequest) -> ExchangeResponse:
         """Create exchange transaction."""
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)
@@ -156,7 +158,7 @@ class ChangeNowService:
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                return Exchange.model_validate(data)
+                return ExchangeResponse.model_validate(data)
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
@@ -272,15 +274,15 @@ class ChangeNowService:
             #logger.error(f"Error estimating exchange: {e}")
             raise
 
-    async def exchange(
+    async def _exchange(
         self,
         source_currency: Currency,
-        destination_currency: Currency ,
+        destination_currency: Currency,
         amount: CurrencyAmount,
         address: str,
         refund_address: str,
-        exchange_type: ExchangeType = ExchangeType.DIRECT,
-    ) -> Exchange:
+        exchange_type: ExchangeType = ExchangeType.REVERSE,
+    ) -> ExchangeResponse:
         """Create exchange transaction."""
         try:
             cn_currency_in = await self._get_changenow_currency(source_currency)
@@ -332,4 +334,35 @@ class ChangeNowService:
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
+
+    async def exchange(
+        self,
+        source_currency: Currency,
+        destination_currency: Currency,
+        amount: CurrencyAmount,
+        address: str,
+        refund_address: str,
+        exchange_type: ExchangeType = ExchangeType.REVERSE,
+    ):
+        _exch = await self._exchange(
+            source_currency,
+            destination_currency,
+            amount,
+            address,
+            refund_address,
+            exchange_type,
+        )
+
+
+        _source_amount = source_currency.amount(_exch.from_amount)
+        _destination_amount = destination_currency.amount(_exch.to_amount)
+
+        return Exchange(
+            id=_exch.id,
+            source=CurrencyWithAmount(currency=source_currency, amount=_source_amount),
+            destination=CurrencyWithAmount(currency=destination_currency, amount=_destination_amount),
+            refund_address=_exch.refund_address,
+            deposit_address=_exch.deposit_address,
+            receiving_address=_exch.recipient_address
+        )
 
