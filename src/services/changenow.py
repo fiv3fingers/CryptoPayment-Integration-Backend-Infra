@@ -4,8 +4,8 @@ import os
 import aiohttp
 from aiocache import Cache, cached
 
-from src.utils.types import ServiceType
-from src.utils.currencies.types import Currency, CurrencyBase
+from src.utils.types import ChainId, ServiceType
+from src.utils.currencies.types import Currency, CurrencyBase, CurrencyAmount
 from src.utils.changenow.types import (
     ChangeNowCurrency,
     EstimateRequest,
@@ -17,6 +17,7 @@ from src.utils.changenow.types import (
     Flow,
 )
 from ..utils.logging import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -143,9 +144,11 @@ class ChangeNowService:
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)
 
+        print(request.model_dump())
+
+
         try:
             data = request.model_dump(by_alias=True, exclude_none=True)
-            data["fromAmount"] = f"{float(data['fromAmount']):.5f}"
 
             logger.debug(f"Creating exchange with data: {data}")
 
@@ -228,15 +231,15 @@ class ChangeNowService:
 
     async def estimate(
         self,
-        currency_in: Union[Currency, CurrencyBase],
-        currency_out: Union[Currency, CurrencyBase],
-        amount: Union[float, Decimal],
+        source_currency: Currency,
+        destination_currency: Currency,
+        amount: CurrencyAmount,
         exchange_type: ExchangeType = ExchangeType.DIRECT,
-    ) -> float:
+    ) -> CurrencyAmount:
         """Get exchange estimate."""
         try:
-            cn_currency_in = await self._get_changenow_currency(currency_in)
-            cn_currency_out = await self._get_changenow_currency(currency_out)
+            cn_currency_in = await self._get_changenow_currency(source_currency)
+            cn_currency_out = await self._get_changenow_currency(destination_currency)
 
             if exchange_type == ExchangeType.DIRECT:
                 est = await self._create_estimate(
@@ -245,14 +248,13 @@ class ChangeNowService:
                         to_currency=cn_currency_out.ticker,
                         from_network=cn_currency_in.network,
                         to_network=cn_currency_out.network,
-                        from_amount=float(
-                            f"{amount:.6f}"
-                        ),  # "5 decimal places precision
+                        from_amount=float(f"{amount.ui_amount:.8f}"),
                         flow=Flow.STANDARD,
                         type=ExchangeType.DIRECT,
                     )
                 )
-                return est.to_amount
+                #return est.to_amount
+                return destination_currency.amount(est.to_amount)
             if exchange_type == ExchangeType.REVERSE:
                 est = await self._create_estimate(
                     EstimateRequest(
@@ -260,29 +262,30 @@ class ChangeNowService:
                         to_currency=cn_currency_out.ticker,
                         from_network=cn_currency_in.network,
                         to_network=cn_currency_out.network,
-                        to_amount=float(f"{amount:.6f}"),  # "5 decimal places precision
+                        to_amount=float(f"{amount.ui_amount:.8f}"),
                         flow=Flow.FIXED,
                         type=ExchangeType.REVERSE,
                     )
                 )
-                return est.from_amount
+                #return est.from_amount
+                return source_currency.amount(est.from_amount)
         except Exception as e:
-            logger.error(f"Error estimating exchange: {e}")
+            #logger.error(f"Error estimating exchange: {e}")
             raise
 
     async def exchange(
         self,
-        currency_in: Union[Currency, CurrencyBase],
-        currency_out: Union[Currency, CurrencyBase],
-        amount: float,
+        source_currency: Currency,
+        destination_currency: Currency ,
+        amount: CurrencyAmount,
         address: str,
         refund_address: str,
         exchange_type: ExchangeType = ExchangeType.DIRECT,
     ) -> Exchange:
         """Create exchange transaction."""
         try:
-            cn_currency_in = await self._get_changenow_currency(currency_in)
-            cn_currency_out = await self._get_changenow_currency(currency_out)
+            cn_currency_in = await self._get_changenow_currency(source_currency)
+            cn_currency_out = await self._get_changenow_currency(destination_currency)
 
             if exchange_type == ExchangeType.DIRECT:
                 return await self._create_exchange(
@@ -291,7 +294,7 @@ class ChangeNowService:
                         to_currency=cn_currency_out.ticker,
                         from_network=cn_currency_in.network,
                         to_network=cn_currency_out.network,
-                        from_amount=amount,
+                        from_amount=float(f"{amount.ui_amount:.8f}"),
                         address=address,
                         refund_address=refund_address,
                         flow=Flow.STANDARD,
@@ -299,19 +302,35 @@ class ChangeNowService:
                     )
                 )
             if exchange_type == ExchangeType.REVERSE:
+                # first generate an estimate to get the rate_id
+                est = await self._create_estimate(
+                    EstimateRequest(
+                        from_currency=cn_currency_in.ticker,
+                        to_currency=cn_currency_out.ticker,
+                        from_network=cn_currency_in.network,
+                        to_network=cn_currency_out.network,
+                        to_amount=float(f"{amount.ui_amount:.8f}"),
+                        flow=Flow.FIXED,
+                        type=ExchangeType.REVERSE,
+                    )
+                )
+
+                # then create the exchange with the rate_id
                 return await self._create_exchange(
                     ExchangeRequest(
-                        from_currency=cn_currency_out.ticker,
-                        to_currency=cn_currency_in.ticker,
-                        from_network=cn_currency_out.network,
-                        to_network=cn_currency_in.network,
-                        from_amount=amount,
+                        from_currency=cn_currency_in.ticker,
+                        to_currency=cn_currency_out.ticker,
+                        from_network=cn_currency_in.network,
+                        to_network=cn_currency_out.network,
+                        to_amount=float(f"{amount.ui_amount:.8f}"),
                         address=address,
                         refund_address=refund_address,
-                        flow=Flow.STANDARD,
+                        flow=Flow.FIXED,
                         type=ExchangeType.REVERSE,
+                        rate_id=est.rate_id
                     )
                 )
         except Exception as e:
             logger.error(f"Error creating exchange: {e}")
             raise
+

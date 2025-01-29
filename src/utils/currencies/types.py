@@ -160,7 +160,7 @@ class Currency(CurrencyBase):
     
     # Constants
     MAX_DECIMALS: ClassVar[int] = 18
-    DEFAULT_DISPLAY_DECIMALS: ClassVar[int] = 6
+    DEFAULT_DISPLAY_DECIMALS: ClassVar[int] = 8
 
     # Required fields
     name: str = Field(description="Full currency name")
@@ -187,9 +187,10 @@ class Currency(CurrencyBase):
         for precision in range(self.decimals + 1):
             unit = 10 ** (self.decimals - precision)
             if unit <= one_cent_in_raw:
-                return precision
+                return max(precision, self.DEFAULT_DISPLAY_DECIMALS)
+
                 
-        return self.decimals
+        return max(self.DEFAULT_DISPLAY_DECIMALS, self.decimals)
 
     def with_price(self, price_usd: Optional[float]) -> "Currency":
         """Create new instance with updated price."""

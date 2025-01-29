@@ -88,7 +88,8 @@ class ExchangeRequest(BaseRequest):
     to_currency: str
     from_network: str
     to_network: str
-    from_amount: float
+    from_amount: Optional[float] = None
+    to_amount: Optional[float] = None
     recipient_address: str = Field(alias="address")
     refund_address: str
     flow: Flow = Flow.STANDARD
@@ -102,7 +103,7 @@ class ExchangeRequest(BaseRequest):
     def to_api_params(self) -> dict:
         """Convert to API parameters"""
         params = self.model_dump(by_alias=True, exclude_none=True)
-        params["fromAmount"] = f"{self.from_amount:.8f}"
+        #params["fromAmount"] = f"{self.from_amount:.8f}"
         return params
 
 
