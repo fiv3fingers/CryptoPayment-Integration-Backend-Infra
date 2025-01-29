@@ -21,6 +21,7 @@ from src.services.coingecko import CoinGeckoService
 from src.utils.blockchain.types import TransferInfoType, TransferInfo, UTXOTransferInfo
 from src.utils.blockchain.validate import validate_transfer_info, validate_utxo_transfer_info
 from src.utils.chains.queries import get_chain_by_id
+from src.utils.changenow.types import ExchangeType
 from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase
 
 from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
@@ -214,7 +215,7 @@ class PayOrderService(BaseService[PayOrder]):
                 quotes = await quote_service.quote(
                     source_currencies=wallet_currencies,
                     destination_currency=destination_currency,
-                    destination_ui_amount=destination_amount.ui_amount
+                    destination_amount=destination_amount
                 )
 
         response_source_currencies = []
@@ -289,13 +290,14 @@ class PayOrderService(BaseService[PayOrder]):
                 )
                 quote = min(quotes, key=lambda x: x.source.amount.value_usd)
 
-                destination_currency = quote.destination_currency
-
+                destination_currency = quote.destination.currency
+                destination_amount = quote.destination.amount
                 destination_receiving_address = next(
                     c.address
                     for c in settlement_currencies
                     if c.currency_id == destination_currency.id
                 )
+
 
             else:
                 # destination_currency_id is set => payment details based on destination_currency_id
@@ -314,31 +316,35 @@ class PayOrderService(BaseService[PayOrder]):
                 quotes = await quote_service.quote(
                     source_currencies=[source_currency],
                     destination_currency=destination_currency,
-                    destination_ui_amount=destination_currency.amount(raw_amount=pay_order.destination_amount).ui_amount
+                    destination_amount=destination_currency.amount(raw_amount=pay_order.destination_amount)
                 )
                 quote = min(quotes, key=lambda q: q.source.amount.value_usd)
 
                 destination_receiving_address = pay_order.destination_receiving_address
+                destination_amount = destination_currency.amount(raw_amount=pay_order.destination_amount)
 
         # Create ChangeNow exchange
         async with ChangeNowService() as cn:
             exch = await cn.exchange(
                 address=destination_receiving_address,
                 refund_address=req.refund_address,
-                amount=quote.source.amount.ui_amount,
-                currency_in=quote.source.currency,
-                currency_out=quote.destination.currency,
+                source_currency=quote.source.currency,
+                destination_currency=destination_currency,
+                amount=destination_amount,
+                exchange_type=ExchangeType.REVERSE
             )
+
+        source_amount = source_currency.amount(ui_amount=exch.from_amount)
 
         # Update PayOrder
         pay_order.source_currency_id = quote.source.currency.id
-        pay_order.source_amount = quote.source.amount.raw_amount
+        pay_order.source_amount = source_amount.raw_amount
         pay_order.source_deposit_address = exch.deposit_address
 
-        pay_order.destination_amount = quote.destination.amount.raw_amount
+        pay_order.destination_amount = destination_amount.raw_amount
         pay_order.destination_receiving_address = destination_receiving_address
 
-        pay_order.refund_address = req.refund_address
+        pay_order.refund_address = exch.refund_address
 
         pay_order.routing_reference = exch.id
         pay_order.routing_service = RoutingServiceType.CHANGENOW
@@ -353,7 +359,7 @@ class PayOrderService(BaseService[PayOrder]):
             status=pay_order.status,
             expires_at=pay_order.expires_at,
             source_currency=source_currency,
-            deposit_amount=quote.source.amount,
+            deposit_amount=source_amount,
             deposit_address=pay_order.source_deposit_address,
             refund_address=pay_order.refund_address,
             destination_currency=None if is_sale else destination_currency,

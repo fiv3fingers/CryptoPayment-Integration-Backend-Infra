@@ -71,17 +71,23 @@ class QuoteService:
             source_amount = await self.changenow.estimate(
                 source_currency=source_currency,
                 destination_currency=destination_currency,
-                amount=destination_amount,
+                amount=destination_amount
                 exchange_type=ExchangeType.REVERSE,
             )
 
+
+            source_currency_with_amount = CurrencyWithAmount(
+                currency=source_currency, amount=source_currency.amount(source_amount)
+            )
+
+            destination_currency_with_amount = CurrencyWithAmount(
+                currency=destination_currency, amount=destination_currency.amount(destination_amount)
+            )
+
+
+
             return Quote(
-                source=CurrencyWithAmount(
-                    currency=source_currency, amount=source_amount
-                ),
-                destination=CurrencyWithAmount(
-                    currency=destination_currency, amount=destination_amount
-                )
+                source=source_currency_with_amount, destination=destination_currency_with_amount
             )
 
         except Exception as e:
@@ -108,11 +114,11 @@ class QuoteService:
                 logger.warning(f"Price not available for {dest_currency.id}")
                 continue
 
-            #dest_amount = Decimal(str(destination_value_usd / dest_currency.price_usd))
+            dest_amount = Decimal(str(destination_value_usd / dest_currency.price_usd))
             task = self._get_exchange_estimate(
                 source_currency=source_currency,
                 destination_currency=dest_currency,
-                destination_amount=dest_currency.amount(value_usd=destination_value_usd)
+                destination_amount=dest_amount,
             )
             tasks.append(task)
 
@@ -149,6 +155,11 @@ class QuoteService:
             self._fetch_currency_prices(source_currencies),
             self._fetch_currency_prices(destination_currencies),
         )
+
+        print("QUOTE USD: ")
+        print("SRC CURRENCIES: ", src_currencies)
+        print("DEST CURRENCIES: ", dest_currencies)
+
         # Get best quote for each source currency
         quote_tasks = [
             self._get_best_quote(
@@ -167,8 +178,8 @@ class QuoteService:
     async def quote(
         self,
         source_currencies: List[CurrencyType],
-        destination_currency: Currency,
-        destination_amount: CurrencyAmount,
+        destination_currency: CurrencyType,
+        destination_ui_amount: Union[float, Decimal],
     ) -> List[Quote]:
         """Get quotes based on a desired destination amount.
 
@@ -184,7 +195,7 @@ class QuoteService:
             self._get_exchange_estimate(
                 source_currency=src_cur,
                 destination_currency=dest_currency,
-                destination_amount=destination_amount,
+                destination_amount=destination_ui_amount,
             )
             for src_cur in src_currencies
         ]

@@ -144,7 +144,6 @@ class ChangeNowService:
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession(headers=self.headers)
 
-        print(request.model_dump())
 
 
         try:
