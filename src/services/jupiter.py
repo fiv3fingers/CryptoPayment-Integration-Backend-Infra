@@ -41,14 +41,14 @@ class JupiterService:
         ttl=900,  # 15 minutes
         cache=Cache.MEMORY,
     )
-    async def get_quote(
+    async def estimate(
         self,
         input_token: str,
         output_token: str,
         amount: int,
         slippage_bps: int = 50,
         only_direct_routes: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> float:
 
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()
