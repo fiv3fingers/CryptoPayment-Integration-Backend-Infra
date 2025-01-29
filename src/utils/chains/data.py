@@ -56,6 +56,23 @@ CHAIN_DATA_MAP = {
             ServiceType.ALCHEMY: "base-mainnet",
         },
     ),
+    ChainId.BSC: Chain(
+        id=ChainId.BSC,
+        name="Binance Smart Chain",
+        chain_type=ChainType.EVM,
+        nativeCurrency=NativeCurrency(
+            name="BNB",
+            ticker="BNB",
+            decimals=18,
+            image="https://cryptologos.cc/logos/bnb-bnb-logo.png",
+            aliases={ServiceType.COINGECKO: "binancecoin", ServiceType.CHANGENOW: "bnb"},
+        ),
+        image="https://cryptologos.cc/logos/bnb-bnb-logo.png",
+        aliases={
+            ServiceType.COINGECKO: "binancecoin",
+            ServiceType.CHANGENOW: "bnb",
+        },
+    ),
     ChainId.SOL: Chain(
         id=ChainId.SOL,
         name="Solana",
