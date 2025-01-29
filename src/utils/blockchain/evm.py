@@ -99,7 +99,7 @@ async def get_metadata(
                 decimals=result["decimals"],
                 image=result["logo"],
                 name=result["name"],
-                ticker=result["symbol"],
+                ticker=result["symbol"].upper(),
             )
     except Exception as e:
         logger.error(f"Failed to get token metadata for {currency.address}: {str(e)}")

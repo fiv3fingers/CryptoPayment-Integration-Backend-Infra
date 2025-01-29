@@ -247,7 +247,7 @@ class CoinGeckoService:
                     chain_id=currency.chain_id,
                     address=currency.address,
                     name=token_info.name,
-                    ticker=token_info.symbol,
+                    ticker=token_info.symbol.upper(),
                     decimals=decimals,
                     image_uri=token_info.image.small,
                 )

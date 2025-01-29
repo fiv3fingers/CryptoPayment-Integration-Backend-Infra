@@ -8,7 +8,6 @@ from src.utils.chains.types import Chain
 from src.utils.chains.queries import get_chain_by_id
 
 from decimal import Decimal
-import math
 
 SEPARATOR_SYMBOL: str = "-"
 
@@ -221,7 +220,7 @@ class CurrencyWithAmount(Currency):
             address=currency.address,
             chain_id=currency.chain_id,
             name=currency.name,
-            ticker=currency.ticker,
+            ticker=currency.ticker.upper(),
             decimals=currency.decimals,
             image_uri=currency.image_uri,
             price_usd=currency.price_usd,
