@@ -4,29 +4,28 @@ from aiocache import Cache, cached
 from typing import Optional
 from web3 import Web3
 
-from src.utils.logging import get_logger
-from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI, \
-    uniswap_v3_Factory_ABI
-from src.utils.uniswap.types import NetworkId, NETWORK_ADDRESS
+from src.utils.chains.queries import get_chain_by_id
+from src.utils.types import ChainId, ServiceType
+from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI, uniswap_v3_Factory_ABI
+from src.utils.uniswap.types import CONTRACT_ADDRESS
 
-EVM_RPC_URL = os.getenv("EVM_RPC_URL")
-if EVM_RPC_URL is None:
-    raise ValueError("EVM_RPC_URL is not set")
+ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY")
 
-
-logger = get_logger(__name__)
 
 class UniswapService:
     """
     A service to fetch quotes from Uniswap on EVM.
     """
-    def __init__(self, network_id: Optional[NetworkId] = NetworkId.MAINNET):
+    def __init__(self, chain_id: Optional[ChainId] = ChainId.ETH):
+        chain = get_chain_by_id(chain_id)
+        chain_name = chain.get_alias(ServiceType.UNISWAP)
+        url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
         self.w3 = Web3(
-            Web3.HTTPProvider(EVM_RPC_URL))
-        self.networkId = network_id
-        self.v2factory_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][0], abi=uniswap_v2_Factory_ABI)
-        self.v2router_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][1], abi=uniswap_v2_router_ABI)
-        self.v3factory_contract = self.w3.eth.contract(address=NETWORK_ADDRESS[network_id][2], abi=uniswap_v3_Factory_ABI)
+            Web3.HTTPProvider(url))
+        self.networkId = chain_id
+        self.v2factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][0], abi=uniswap_v2_Factory_ABI)
+        self.v2router_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][1], abi=uniswap_v2_router_ABI)
+        self.v3factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][2], abi=uniswap_v3_Factory_ABI)
 
     def _get_pair(self, token_a: str, token_b: str) -> str:
         pair_address = self.v2factory_contract.functions.getPair(token_a, token_b).call()

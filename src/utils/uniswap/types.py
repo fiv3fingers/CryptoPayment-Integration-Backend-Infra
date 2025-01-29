@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Dict, Tuple
 
+from src.utils.types import ChainId
+
 
 class NetworkId(int, Enum):
     MAINNET = 20
@@ -57,31 +59,32 @@ class V3FactoryAddress(str, Enum):
 
     CELO = "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc"
     ZKSYNC = "0x8FdA5a7a8dCA67BBcDd10F02Fa0649A937215422"
-#
-# NETWORK_ADDRESS: Dict[NetworkId, V2FactoryAddress] = {
-#     NetworkId.MAINNET: {V2FactoryAddress.MAINNET},
-#     NetworkId.SEPOLIA: V2FactoryAddress.SEPOLIA,
-#     NetworkId.ARBITRUM: V2FactoryAddress.ARBITRUM,
-#     NetworkId.AVALANCHE: V2FactoryAddress.AVALANCHE,
-#     NetworkId.BNBCHAIN: V2FactoryAddress.BNBCHAIN,
-#     NetworkId.BASE: V2FactoryAddress.BASE,
-#     NetworkId.OPTIMISM: V2FactoryAddress.OPTIMISM,
-#     NetworkId.POLYGON: V2FactoryAddress.POLYGON,
-#     NetworkId.BLAST: V2FactoryAddress.BLAST,
-#     NetworkId.ZORA: V2FactoryAddress.ZORA,
-#     NetworkId.WORLDCHAIN: V2FactoryAddress.WORLDCHAIN,
-# }
 
-NETWORK_ADDRESS: Dict[NetworkId, Tuple[V2FactoryAddress, V2RouterAddress]] = {
-    NetworkId.MAINNET:      (V2FactoryAddress.MAINNET,     V2RouterAddress.MAINNET,      V3FactoryAddress.MAINNET),
-    NetworkId.SEPOLIA:      (V2FactoryAddress.SEPOLIA,     V2RouterAddress.SEPOLIA,      V3FactoryAddress.SEPOLIA),
-    NetworkId.ARBITRUM:     (V2FactoryAddress.ARBITRUM,    V2RouterAddress.ARBITRUM,     V3FactoryAddress.ARBITRUM),
-    NetworkId.AVALANCHE:    (V2FactoryAddress.AVALANCHE,   V2RouterAddress.AVALANCHE,    V3FactoryAddress.AVALANCHE),
-    NetworkId.BNBCHAIN:     (V2FactoryAddress.BNBCHAIN,    V2RouterAddress.BNBCHAIN,     V3FactoryAddress.BNBCHAIN),
-    NetworkId.BASE:         (V2FactoryAddress.BASE,        V2RouterAddress.BASE,         V3FactoryAddress.BASE),
-    NetworkId.OPTIMISM:     (V2FactoryAddress.OPTIMISM,    V2RouterAddress.OPTIMISM,     V3FactoryAddress.OPTIMISM),
-    NetworkId.POLYGON:      (V2FactoryAddress.POLYGON,     V2RouterAddress.POLYGON,      V3FactoryAddress.POLYGON),
-    NetworkId.BLAST:        (V2FactoryAddress.BLAST,       V2RouterAddress.BLAST,        V3FactoryAddress.BLAST),
-    NetworkId.ZORA:         (V2FactoryAddress.ZORA,        V2RouterAddress.ZORA,         V3FactoryAddress.ZORA),
-    NetworkId.WORLDCHAIN:   (V2FactoryAddress.WORLDCHAIN,  V2RouterAddress.WORLDCHAIN,   V3FactoryAddress.WORLDCHAIN),
+
+class V3RouterAddress(str, Enum):
+    MAINNET = "0xEf1c6E67703c7BD7107eed8303Fbe6EC2554BF6B"
+    SEPOLIA = "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD"
+    ARBITRUM = "0x4C60051384bd2d3C01bfc845Cf5F4b44bcbE9de5"
+    AVALANCHE = "0x82635AF6146972cD6601161c4472ffe97237D292"
+    BNBCHAIN = "0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897"
+    BASE = "0xeC8B0F7Ffe3ae75d7FfAb09429e3675bb63503e4"
+    OPTIMISM = "0xb555edF5dcF85f42cEeF1f3630a52A108E55A654"
+    POLYGON = "0x4C60051384bd2d3C01bfc845Cf5F4b44bcbE9de5"
+    BLAST = "0x792edAdE80af5fC680d96a2eD80A44247D2Cf6Fd"
+    ZORA = "0x7145F8aeef1f6510E92164038E1B6F8cB2c42Cbb"
+    WORLDCHAIN = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+
+    CELO = "0xC73d61d192FB994157168Fb56730FdEc64C9Cb8F"
+
+
+CONTRACT_ADDRESS: Dict[ChainId, Tuple[V2FactoryAddress, V2RouterAddress, V3FactoryAddress, V3RouterAddress]] = {
+    ChainId.ETH:          (V2FactoryAddress.MAINNET,     V2RouterAddress.MAINNET,      V3FactoryAddress.MAINNET,      V3RouterAddress.MAINNET),
+    ChainId.SEPOLIA:      (V2FactoryAddress.SEPOLIA,     V2RouterAddress.SEPOLIA,      V3FactoryAddress.SEPOLIA,      V3RouterAddress.SEPOLIA),
+    ChainId.ARBITRUM:     (V2FactoryAddress.ARBITRUM,    V2RouterAddress.ARBITRUM,     V3FactoryAddress.ARBITRUM,     V3RouterAddress.ARBITRUM),
+    ChainId.AVALANCHE:    (V2FactoryAddress.AVALANCHE,   V2RouterAddress.AVALANCHE,    V3FactoryAddress.AVALANCHE,    V3RouterAddress.AVALANCHE),
+    ChainId.BSC:          (V2FactoryAddress.BNBCHAIN,    V2RouterAddress.BNBCHAIN,     V3FactoryAddress.BNBCHAIN,     V3RouterAddress.BNBCHAIN),
+    ChainId.BASE:         (V2FactoryAddress.BASE,        V2RouterAddress.BASE,         V3FactoryAddress.BASE,         V3RouterAddress.BASE),
+    ChainId.OPTIMISM:     (V2FactoryAddress.OPTIMISM,    V2RouterAddress.OPTIMISM,     V3FactoryAddress.OPTIMISM,     V3RouterAddress.OPTIMISM),
+    ChainId.POLYGON:      (V2FactoryAddress.POLYGON,     V2RouterAddress.POLYGON,      V3FactoryAddress.POLYGON,      V3RouterAddress.POLYGON),
+    ChainId.BLAST:        (V2FactoryAddress.BLAST,       V2RouterAddress.BLAST,        V3FactoryAddress.BLAST,        V3RouterAddress.BLAST)
 }
