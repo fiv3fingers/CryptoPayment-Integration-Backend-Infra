@@ -3,8 +3,6 @@ from typing import List, TypeVar, Sequence, Union
 from dataclasses import dataclass
 from decimal import Decimal
 
-from src.services.jupiter import JupiterService
-from src.services.uniswap import UniswapService
 from src.utils.currencies.helpers import to_currency_base
 from src.utils.currencies.types import Currency, CurrencyBase, CurrencyWithAmount
 from src.utils.logging import get_logger
@@ -60,23 +58,17 @@ class QuoteService:
     def __init__(self):
         self.coingecko = CoinGeckoService()
         self.changenow = ChangeNowService()
-        self.jupiter = JupiterService()
-        self.uniswap = UniswapService()
 
     async def __aenter__(self):
         """Set up external service connections."""
         await self.coingecko.__aenter__()
         await self.changenow.__aenter__()
-        await self.jupiter.__aenter__()
-        await self.uniswap.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Clean up external service connections."""
         await self.coingecko.__aexit__(exc_type, exc_val, exc_tb)
         await self.changenow.__aexit__(exc_type, exc_val, exc_tb)
-        await self.jupiter.__aexit__(exc_type, exc_val, exc_tb)
-        await self.uniswap.__aexit__(exc_type, exc_val, exc_tb)
 
     async def _fetch_currency_prices(
         self, currencies: Sequence[CurrencyType]
