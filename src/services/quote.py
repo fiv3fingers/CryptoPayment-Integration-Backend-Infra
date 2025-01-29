@@ -1,12 +1,10 @@
 import asyncio
-from typing import List, TypeVar, Sequence, Union
+from typing import List, NamedTuple, TypeVar, Sequence, Union
 from dataclasses import dataclass
 from decimal import Decimal
 
-from src.services.jupiter import JupiterService
-from src.services.uniswap import UniswapService
 from src.utils.currencies.helpers import to_currency_base
-from src.utils.currencies.types import Currency, CurrencyBase, CurrencyWithAmount
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase
 from src.utils.logging import get_logger
 from src.services.changenow import ChangeNowService, ExchangeType
 from src.services.coingecko import CoinGeckoService
@@ -15,40 +13,16 @@ logger = get_logger(__name__)
 
 CurrencyType = TypeVar("CurrencyType", str, CurrencyBase, Currency)
 
+# those classes are used to represent the data that is returned by the quote service.
+# It could be a dict but we use NamedTuple for better type checking and readability.
+# we never use those types for the response of the API, we use only the pydantic models.
+class CurrencyWithAmount(NamedTuple):
+        currency: Currency
+        amount: CurrencyAmount
 
-@dataclass
-class CurrencyQuote:
-    """Represents a currency exchange quote."""
-
-    source_currency: CurrencyWithAmount
-    destination_currency: CurrencyWithAmount
-
-    @property
-    def source_value_usd(self) -> float:
-        """Calculate the USD value of the source amount."""
-        if not self.source_currency.price_usd:
-            raise ValueError(f"Price not available for {self.source_currency.id}")
-        if not self.source_currency.amount.ui_amount:
-            raise ValueError("Source amount not set")
-        return self.source_currency.amount.ui_amount * self.source_currency.price_usd
-
-    @property
-    def destination_value_usd(self) -> float:
-        """Calculate the USD value of the destination amount."""
-        if not self.destination_currency.price_usd:
-            raise ValueError(f"Price not available for {self.destination_currency.id}")
-        if not self.destination_currency.amount.ui_amount:
-            raise ValueError("Destination amount not set")
-        return self.destination_currency.amount.ui_amount * self.destination_currency.price_usd
-
-    def __str__(self) -> str:
-        """Human-readable representation of the quote."""
-        return (
-            f"{self.source_currency.amount.ui_amount} {self.source_currency.ticker} "
-            f"({self.source_value_usd:.2f} USD) → "
-            f"{self.destination_currency.amount.ui_amount} {self.destination_currency.ticker} "
-            f"({self.destination_value_usd:.2f} USD)"
-        )
+class Quote(NamedTuple):
+    source: CurrencyWithAmount
+    destination: CurrencyWithAmount
 
 
 class QuoteService:
@@ -60,23 +34,17 @@ class QuoteService:
     def __init__(self):
         self.coingecko = CoinGeckoService()
         self.changenow = ChangeNowService()
-        self.jupiter = JupiterService()
-        self.uniswap = UniswapService()
 
     async def __aenter__(self):
         """Set up external service connections."""
         await self.coingecko.__aenter__()
         await self.changenow.__aenter__()
-        await self.jupiter.__aenter__()
-        await self.uniswap.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Clean up external service connections."""
         await self.coingecko.__aexit__(exc_type, exc_val, exc_tb)
         await self.changenow.__aexit__(exc_type, exc_val, exc_tb)
-        await self.jupiter.__aexit__(exc_type, exc_val, exc_tb)
-        await self.uniswap.__aexit__(exc_type, exc_val, exc_tb)
 
     async def _fetch_currency_prices(
         self, currencies: Sequence[CurrencyType]
@@ -90,7 +58,7 @@ class QuoteService:
         source_currency: Currency,
         destination_currency: Currency,
         destination_amount: Decimal,
-    ) -> CurrencyQuote:
+    ) -> Quote:
         """Get an exchange estimate for a currency pair.
 
         Uses ChangeNow to estimate how much source currency is needed for the
@@ -108,19 +76,18 @@ class QuoteService:
             )
 
 
-            source_currency_with_amount = CurrencyWithAmount.from_amount(
-                currency=source_currency, ui_amount=source_amount
+            source_currency_with_amount = CurrencyWithAmount(
+                currency=source_currency, amount=source_currency.amount(source_amount)
             )
 
-            destination_currency_with_amount = CurrencyWithAmount.from_amount(
-                currency=destination_currency, ui_amount=destination_amount
+            destination_currency_with_amount = CurrencyWithAmount(
+                currency=destination_currency, amount=destination_currency.amount(destination_amount)
             )
 
 
 
-            return CurrencyQuote(
-                source_currency=source_currency_with_amount,
-                destination_currency=destination_currency_with_amount,
+            return Quote(
+                source=source_currency_with_amount, destination=destination_currency_with_amount
             )
 
         except Exception as e:
@@ -134,7 +101,7 @@ class QuoteService:
         source_currency: Currency,
         destination_currencies: List[Currency],
         destination_value_usd: float,
-    ) -> CurrencyQuote:
+    ) -> Quote:
         """Find the best quote among multiple destination currencies.
 
         Returns the quote requiring the lowest source currency amount in USD terms.
@@ -171,14 +138,14 @@ class QuoteService:
             raise ValueError("No quotes available")
 
         # Return quote with lowest source USD value
-        return min(quotes, key=lambda q: q.source_value_usd)
+        return min(quotes, key=lambda q: q.source.amount.value_usd)
 
     async def quote_usd(
         self,
         source_currencies: List[CurrencyType],
         destination_currencies: List[CurrencyType],
         destination_value_usd: float,
-    ) -> List[CurrencyQuote]:
+    ) -> List[Quote]:
         """Get quotes based on a desired USD value.
 
         For each source currency, finds the best destination currency that will
@@ -188,6 +155,10 @@ class QuoteService:
             self._fetch_currency_prices(source_currencies),
             self._fetch_currency_prices(destination_currencies),
         )
+
+        print("QUOTE USD: ")
+        print("SRC CURRENCIES: ", src_currencies)
+        print("DEST CURRENCIES: ", dest_currencies)
 
         # Get best quote for each source currency
         quote_tasks = [
@@ -209,7 +180,7 @@ class QuoteService:
         source_currencies: List[CurrencyType],
         destination_currency: CurrencyType,
         destination_ui_amount: Union[float, Decimal],
-    ) -> List[CurrencyQuote]:
+    ) -> List[Quote]:
         """Get quotes based on a desired destination amount.
 
         For each source currency, estimates how much would be needed to obtain

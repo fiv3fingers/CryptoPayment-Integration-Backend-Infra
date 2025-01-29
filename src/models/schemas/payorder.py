@@ -3,10 +3,9 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
 from src.utils.chains.queries import get_chain_by_id
-from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount
+from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
-
 
 class MetadataItems(BaseModel):
     name: Optional[str] = Field(examples=["t-shirt"], default=None)
@@ -126,8 +125,7 @@ class CreateQuoteRequest(BaseModel):
 
         return values
 
-class CurrencyQuote(BaseModel):
-    currency: Currency
+class CurrencyQuote(Currency):
     balance: CurrencyAmount
     required: CurrencyAmount
 

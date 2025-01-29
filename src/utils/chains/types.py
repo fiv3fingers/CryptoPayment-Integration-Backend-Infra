@@ -17,12 +17,12 @@ class NativeCurrency(AliasModel):
     name: str
     ticker: str
     decimals: int
-    image: str
+    image_uri: str
 
 
 class Chain(AliasModel):
     id: ChainId
     name: str
     chain_type: ChainType
-    image: str
+    image_uri: str
     nativeCurrency: NativeCurrency
