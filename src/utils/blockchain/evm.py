@@ -13,13 +13,18 @@ from src.utils.types import ChainId
 from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
 from src.utils.chains.types import ServiceType
-from src.utils.chains.queries import get_chain_by_id
+from src.utils.chains.queries import get_chain_by_id, get_rpc_by_chain_id
 from .types import Balance, TransferInfo
 
 logger = get_logger(__name__)
-ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY")
 
 HEADERS = {"accept": "application/json", "content-type": "application/json"}
+
+async def _get_web3_client(chain_id: ChainId) -> AsyncWeb3:
+    """Helper function to create Web3 client."""
+    rpc_url = get_rpc_by_chain_id(chain_id)
+    return AsyncWeb3(Web3.AsyncHTTPProvider(rpc_url))
+
 
 
 async def get_token_balances(
@@ -33,9 +38,7 @@ async def get_token_balances(
         address: The wallet address to query
         chain_id: The chain ID to query
     """
-    chain = get_chain_by_id(chain_id)
-    chain_name = chain.get_alias(ServiceType.ALCHEMY)
-    url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+    url = get_rpc_by_chain_id(chain_id)
 
     payload = {
         "id": 1,
@@ -78,9 +81,7 @@ async def get_metadata(
     if currency.is_native:
         raise ValueError("Native currency does not have metadata")
 
-    chain = currency.chain
-    chain_name = chain.get_alias(ServiceType.ALCHEMY)
-    url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+    url = get_rpc_by_chain_id(currency.chain_id)
 
     payload = {
         "id": 1,
@@ -97,7 +98,7 @@ async def get_metadata(
                 address=currency.address,
                 chain_id=currency.chain_id,
                 decimals=result["decimals"],
-                image=result["logo"],
+                image_uri=result["logo"],
                 name=result["name"],
                 ticker=result["symbol"],
             )
@@ -117,9 +118,9 @@ async def get_native_balance(
         address: The wallet address to query
         chain_id: The chain ID to query
     """
+
     chain = get_chain_by_id(chain_id)
-    chain_name = chain.get_alias(ServiceType.ALCHEMY)
-    url = f"https://{chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+    url = get_rpc_by_chain_id(chain.id)
 
     payload = {
         "id": 1,
@@ -159,17 +160,9 @@ async def get_wallet_balances(address: str, chain_id: ChainId) -> List[Balance]:
         return [native_balance] + token_balances
 
 
-async def get_web3_client(chain_id: ChainId) -> AsyncWeb3:
-    """Helper function to create Web3 client."""
-    chain = get_chain_by_id(chain_id)
-    alias = chain.get_alias(ServiceType.ALCHEMY)
-    rpc_url: str = f"https://{alias}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
-    return AsyncWeb3(Web3.AsyncHTTPProvider(rpc_url))
-
-
 async def get_native_transfer(tx_hash: str, chain_id: ChainId) -> TransferInfo:
     """Get native transfer details from a transaction hash."""
-    w3 = await get_web3_client(chain_id)
+    w3 = await _get_web3_client(chain_id)
 
     try:
         tx = await w3.eth.get_transaction(tx_hash)
@@ -187,7 +180,7 @@ async def get_native_transfer(tx_hash: str, chain_id: ChainId) -> TransferInfo:
 
 async def get_erc20_transfer(tx_hash: str, chain_id: ChainId) -> TransferInfo:
     """Get ERC20 token transfer details from a transaction hash."""
-    w3 = await get_web3_client(chain_id)
+    w3 = await _get_web3_client(chain_id)
 
     try:
         transfer_event_signature = w3.keccak(
@@ -228,7 +221,7 @@ async def get_transfer_details(tx_hash: str, chain_id: ChainId) -> TransferInfo:
     Raises:
         ValueError: If no transfer is found in the transaction
     """
-    w3 = await get_web3_client(chain_id)
+    w3 = await _get_web3_client(chain_id)
 
     try:
         tx = await w3.eth.get_transaction(tx_hash)
