@@ -30,23 +30,17 @@ async def create_payorder(
     api_key=Depends(api_key_header),
     auth_header=Depends(authorization_header),
 ):
+    if req.mode == PayOrderMode.DEPOSIT:
+        org = get_current_organization(api_key, db) # raise 401 if invalid api key
+    if req.mode == PayOrderMode.SALE:
+        org = validate_authorization_header(auth_header, db) # raise 401 if invalid signature
 
     try:
-        if req.mode == PayOrderMode.DEPOSIT:
-            org = get_current_organization(api_key, db)
-        if req.mode == PayOrderMode.SALE:
-            org = validate_authorization_header(auth_header, db)
+        payorder_service = PayOrderService(db)
+        return await payorder_service.create_payorder(org.id, req)
 
-        if org is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key or Signature")
-
-        pay_order_service = PayOrderService(db)
-        return await pay_order_service.create_payorder(org.id, req)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @router.post("/{payorder_id}/quote", response_model=List[SingleCurrencyQuote])
@@ -58,10 +52,14 @@ async def quote_payorder(
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
-    pay_order_service = PayOrderService(db)
-    resp = await pay_order_service.quote(payorder_id, req, org)
+    try:
+        payorder_service = PayOrderService(db)
+        return await payorder_service.quote(payorder_id, req, org)
 
-    return resp
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 @router.post("/{payorder_id}/payment-details", response_model=PaymentDetailsResponse)
@@ -73,18 +71,22 @@ async def create_payment_details(
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
-    pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(payorder_id)
-    if pay_order is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    try:
+        payorder_service = PayOrderService(db)
+        payorder = await payorder_service.get(payorder_id)
+        if payorder is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
-    # Check if payorder status is pending
-    if pay_order.status != PayOrderStatus.PENDING:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Deposit status is not pending, cannot update")
-    
-    resp = await pay_order_service.payment_details(pay_order, req, org)
+        # Check if payorder status is pending
+        if payorder.status != PayOrderStatus.PENDING:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Deposit status is not pending, cannot update")
+        
+        return await payorder_service.payment_details(payorder, req, org)
+    except HTTPException as e:
+        raise HTTPException(status_code=e.status_code)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return resp
 
 
 @router.get("/{payorder_id}/process", response_model=None)
@@ -96,23 +98,28 @@ async def process_payorder(
 ):
     """API Route for processing a payorder"""
 
-    pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(payorder_id)
-    if pay_order is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PayOrder not found")
+    try:
+        payorder_service = PayOrderService(db)
+        payorder = await payorder_service.get(payorder_id)
+        if payorder is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PayOrder not found")
 
-    # Validation
-    if pay_order.status != PayOrderStatus.AWAITING_PAYMENT:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not awaiting payment"
-        )
+        # Validation
+        if payorder.status != PayOrderStatus.AWAITING_PAYMENT:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not awaiting payment"
+            )
 
-    pay_order = await pay_order_service.process_payment_txhash(pay_order, tx_hash)
-    await pay_order_service.update(pay_order)
+        payorder = await payorder_service.process_payment_txhash(payorder, tx_hash)
+        await payorder_service.update(payorder)
 
-    if pay_order.status == PayOrderStatus.AWAITING_CONFIRMATION:
-        # TODO: build in retry mechanism
-        pass
+        if payorder.status == PayOrderStatus.AWAITING_CONFIRMATION:
+            # TODO: build in retry mechanism
+            pass
+    except HTTPException as e:
+        raise e
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -125,11 +132,17 @@ async def get_payorder(
 ):
     """API Route for get a payorder by id"""
 
-    pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(payorder_id)
-    if pay_order is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    return pay_order
+    try:
+        payorder_service = PayOrderService(db)
+        payorder = await payorder_service.get(payorder_id)
+        if payorder is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        return payorder
+    except HTTPException as e:
+        raise e
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @router.get("/", response_model=List[PayOrderResponse])
@@ -141,6 +154,9 @@ async def get_orders(
     # TODO: add pagination
     # TODO: only from dashboard server
 
-    pay_order_service = PayOrderService(db)
-    pay_orders = await pay_order_service.get_all(org.id)
-    return pay_orders
+    try:
+        payorder_service = PayOrderService(db)
+        payorders = await payorder_service.get_all(org.id)
+        return payorders
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
