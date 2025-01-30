@@ -22,7 +22,7 @@ from src.utils.blockchain.types import TransferInfoType, TransferInfo, UTXOTrans
 from src.utils.blockchain.validate import validate_transfer_info, validate_utxo_transfer_info
 from src.utils.chains.queries import get_chain_by_id
 from src.utils.changenow.types import ExchangeType
-from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount
 
 from src.utils.blockchain.blockchain import get_wallet_balances, get_transfer_details
 
@@ -57,26 +57,11 @@ class PayOrderService(BaseService[PayOrder]):
     ) -> PayOrderResponse:
         """
         Create a pay order
-
-        org_id: str (Organization ID)
-        req: CreatePayOrderRequest
-            - mode: PayOrderMode
-            - destination_currency: Optional[CurrencyBase]
-            - destination_amount: Optional[float]
-            - destination_value_usd: Optional[float]
-            - destination_receiving_address: Optional[str]
-            - metadata: Optional[PayOrderMetadata]
-
-        Returns: PayOrderResponse
-            - id: str
-            - mode: PayOrderMode
-            - status: PayOrderStatus
-
-            - metadata: dict
-            - destination_currency: Currency
         """
 
         destination_currency: Currency | None = None
+        destination_amount: CurrencyAmount | None = None
+
         if req.destination_currency:
             async with CoinGeckoService() as cg:
                 destination_currency = await cg.get_token_info(req.destination_currency)
@@ -86,10 +71,8 @@ class PayOrderService(BaseService[PayOrder]):
                     status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid destination_currency"
                 )
 
-        # Convert user friendly destinatino amount to int amount
-        _destination_amount: CurrencyAmount | None = None
-        if destination_currency and req.destination_amount:
-            _destination_amount = destination_currency.amount(ui_amount=req.destination_amount)
+            if req.destination_amount:
+                destination_amount = destination_currency.amount(ui_amount=req.destination_amount)
 
 
         # Create PayOrder
@@ -98,24 +81,27 @@ class PayOrderService(BaseService[PayOrder]):
             mode=req.mode,
             status=PayOrderStatus.PENDING,
             metadata_=req.metadata.model_dump() if req.metadata else {},
-            destination_currency_id=(
-                destination_currency.id if destination_currency else None
-            ),
-            destination_amount=_destination_amount.raw_amount if _destination_amount else None,
+            destination_currency_id= destination_currency.id if destination_currency else None,
+            destination_amount=destination_amount.raw_amount if destination_amount else None,
             destination_value_usd=req.destination_value_usd,
-            destination_receiving_address=req.destination_receiving_address,
+            destination_receiving_address=req.receiving_address,
         )
 
         await self.update(pay_order)
 
         return PayOrderResponse(
-            id=str(pay_order.id),
+            id=pay_order.id,
             mode=pay_order.mode.value,
             status=pay_order.status,
             metadata=pay_order.metadata_,
-            destination_currency=destination_currency,
-            destination_amount=req.destination_amount,
-            destination_value_usd=pay_order.destination_value_usd,
+            destination=CurrencyWithAmount(
+                currency=destination_currency,
+                amount=destination_amount
+            ) if destination_currency and destination_amount else None,
+            receiving_address=pay_order.destination_receiving_address,
+            #destination_currency=destination_currency,
+            #destination_amount=req.destination_amount,
+            #destination_value_usd=pay_order.destination_value_usd,
         )
 
     async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[SingleCurrencyQuote]:
