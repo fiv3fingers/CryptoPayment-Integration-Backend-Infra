@@ -123,6 +123,12 @@ async def process_payorder(
 
 
 
+    # TODO: add pagination
+    # TODO: only from dashboard server
+
+    pay_order_service = PayOrderService(db)
+    pay_orders = await pay_order_service.get_all(org.id)
+    return pay_orders
 
 @router.get("/{payorder_id}", response_model=PayOrderResponse)
 async def get_payorder(
