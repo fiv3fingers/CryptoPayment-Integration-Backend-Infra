@@ -9,7 +9,7 @@ def validate_transfer_info(transfer_info: TransferInfo, expected_amount: int, ex
         or transfer_info.source_address != expected_sender
         or transfer_info.destination_address != expected_deposit_address
     ):
-        raise Exception(detail="Invalid transaction hash: mismatched details")
+        raise Exception("Invalid transaction hash: mismatched details")
 
 
 def validate_utxo_transfer_info(transfer_info: UTXOTransferInfo, expected_amount: int, expected_currency: CurrencyBase, expected_sender: str, expected_deposit_address: str):
@@ -25,4 +25,4 @@ def validate_utxo_transfer_info(transfer_info: UTXOTransferInfo, expected_amount
             break
 
     if not found:
-        raise Exception(detail="Invalid transaction hash: mismatched details")
+        raise Exception("Invalid transaction hash: mismatched details")

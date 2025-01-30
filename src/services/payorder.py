@@ -50,7 +50,7 @@ class PayOrderService(BaseService[PayOrder]):
             self.db.refresh(pay_order)
         except Exception as e:
             logger.error("Error updating PayOrder: %s", e)
-            raise Exception(detail="Error updating PayOrder") from e
+            raise Exception("Error updating PayOrder") from e
 
     async def create_payorder(
         self, org_id: str, req: CreatePayOrderRequest
@@ -82,7 +82,7 @@ class PayOrderService(BaseService[PayOrder]):
                 destination_currency = await cg.get_token_info(req.destination_currency)
 
             if not destination_currency:
-                raise Exception(
+                raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid destination_currency"
                 )
 
@@ -270,7 +270,7 @@ class PayOrderService(BaseService[PayOrder]):
                     for c in settlement_currencies
                 ]
                 if not destination_currencies or len(destination_currencies) == 0:
-                    raise Exception(detail="no or Invalid settlement_currency given")
+                    raise Exception("no or Invalid settlement_currency given")
 
                 # Get quote
                 quotes = await quote_service.quote_usd(
@@ -396,7 +396,7 @@ class PayOrderService(BaseService[PayOrder]):
             )
         except Exception as e:
             logger.error("Error getting transfer details: %s", e)
-            raise Exception(detail="Error getting transfer details") from e
+            raise Exception("Error getting transfer details") from e
         
         pay_order.source_transaction_hash = tx_hash
         if transfer_info is None or transfer_info.confirmed is False:

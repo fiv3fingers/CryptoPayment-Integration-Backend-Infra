@@ -107,7 +107,7 @@ async def process_payorder(
         # Validation
         if payorder.status != PayOrderStatus.AWAITING_PAYMENT:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not awaiting payment"
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="PayOrder status is not AWAITING_PAYMENT"
             )
 
         payorder = await payorder_service.process_payment_txhash(payorder, tx_hash)

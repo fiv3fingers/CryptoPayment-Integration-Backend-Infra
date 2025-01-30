@@ -18,7 +18,7 @@ class OrganizationService(BaseService[Organization]):
         """Get settlement currencies for the organization."""
         org = self.db.query(Organization).get(organization_id)
         if not org:
-            raise Exception(detail="Organization not found")
+            raise Exception("Organization not found")
 
         settlement_currencies = [
             SettlementCurrency.from_dict(currency)

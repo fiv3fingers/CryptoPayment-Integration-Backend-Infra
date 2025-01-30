@@ -21,9 +21,8 @@ class BaseService(Generic[T]):
         except IntegrityError as e:
             self.db.rollback()
             logger.error("Database integrity error: %s", str(e))
-            raise Exception(detail="Database constraint violation"
-            ) from e
+            raise Exception("Database constraint violation") from e
         except Exception as e:
             self.db.rollback()
             logger.error("Database operation error: %s", str(e))
-            raise Exception(detail="Internal server error") from e
+            raise Exception("Internal server error") from e
