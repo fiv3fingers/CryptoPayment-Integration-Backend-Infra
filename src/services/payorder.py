@@ -8,7 +8,7 @@ import logging
 from src.models.enums import PayOrderStatus, PayOrderMode, RoutingServiceType
 from src.models.schemas.payorder import (
     CreatePayOrderRequest,
-    CurrencyQuote,
+    SingleCurrencyQuote,
     PayOrderResponse,
     CreateQuoteRequest,
     PaymentDetailsRequest,
@@ -118,7 +118,7 @@ class PayOrderService(BaseService[PayOrder]):
             destination_value_usd=pay_order.destination_value_usd,
         )
 
-    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[CurrencyQuote]:
+    async def quote(self, payorder_id: str, req: CreateQuoteRequest, org: Organization) -> List[SingleCurrencyQuote]:
         """
         Get a quote for a pay order
 
@@ -225,7 +225,7 @@ class PayOrderService(BaseService[PayOrder]):
             )
 
             response_source_currencies.append(
-                CurrencyQuote(
+                SingleCurrencyQuote(
                     **q.source.currency.model_dump(),
                     required=q.source.amount,
                     balance=q.source.currency.amount(raw_amount=raw_balance)
@@ -239,37 +239,27 @@ class PayOrderService(BaseService[PayOrder]):
     async def payment_details(
         self, pay_order: PayOrder, req: PaymentDetailsRequest, org: Organization
     ) -> PaymentDetailsResponse:
-        """
-        Create payment details
+        """ Create payment details for a pay order """
 
-        payorder_id: str
-        req: PaymentDetailsRequest
-            - source_currency: CurrencyBase
-            - refund_address: str
+        # Get source currency
+        async with CoinGeckoService() as cg:
+            source_currency = await cg.get_token_info(req.source_currency)
+        if not source_currency:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid source_currency")
 
-        Returns: PaymentDetailsResponse
-            - id: str
-            - status: PayOrderStatus
-            - expires_at: datetime
 
-            - source_currency: Currency
-            - deposit_address: str
-            - refund_address: str
+        is_sale: bool = pay_order.mode == PayOrderMode.SALE
 
-            - destination_currency: Optional[Currency]
-            - destination_receiving_address: Optional[str]
-
-        """
 
         async with QuoteService() as quote_service:
-            async with CoinGeckoService() as cg:
-                source_currency = await cg.get_token_info(req.source_currency)
-            if not source_currency:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid source_currency")
 
-            is_sale: bool = pay_order.mode == PayOrderMode.SALE
+            """
+            SALE and destination_currency_id is not set in pay_order (DB)
+                => settlement_currencies
 
-            # destination_currency_id for SALE is not set => payment details based on settlement currencies in organization
+            automatically implies that the payorder is prices in USD
+
+            """
             if is_sale and (pay_order.destination_currency_id is None):
                 settlement_currencies = [
                     SettlementCurrency.from_dict(c) for c in org.settlement_currencies
@@ -288,46 +278,53 @@ class PayOrderService(BaseService[PayOrder]):
                     destination_currencies=destination_currencies,
                     destination_value_usd=pay_order.destination_value_usd,
                 )
+
                 quote = min(quotes, key=lambda x: x.source.amount.value_usd)
-
-                #destination_currency = quote.destination.currency
-                #destination_amount = quote.destination.amount
-
-                src = quote.source
-                dest = quote.destination
+                # use the receiving address from settlement_currencies
                 destination_receiving_address = next(
                     c.address
                     for c in settlement_currencies
-                    if c.currency_id == dest.currency.id
+                    if c.currency_id == quote.destination.currency.id
                 )
-
-
             else:
-                # destination_currency_id is set => payment details based on destination_currency_id
+                """
+                destination_currency_id is set 
+                    => payment details based on destination_currency_id
+
+                    * destination_amount can be set or destination_value_usd
+                """
 
                 async with CoinGeckoService() as cg:
                     destination_currency = await cg.get_token_info(
                         pay_order.destination_currency_id
                     )
                 if not destination_currency:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid destination_currency"
+                    raise ValueError(
+                        "Could not find destination_currency in CoinGecko. Please check the destination_currency_id."
                     )
-                
 
                 # Get quote
-                quotes = await quote_service.quote(
-                    source_currencies=[source_currency],
-                    destination_currency=destination_currency,
-                    destination_amount=destination_currency.amount(raw_amount=pay_order.destination_amount)
-                )
+                if pay_order.destination_amount:
+                    quotes = await quote_service.quote(
+                        source_currencies=[source_currency],
+                        destination_currency=destination_currency,
+                        destination_amount=destination_currency.amount(raw_amount=pay_order.destination_amount)
+                    )
+                elif pay_order.destination_value_usd:
+                    quotes = await quote_service.quote_usd(
+                        source_currencies=[source_currency],
+                        destination_currencies=[destination_currency],
+                        destination_value_usd=pay_order.destination_value_usd,
+                    )
+                else:
+                    raise ValueError("destination_amount or destination_value_usd must be set")
+
                 quote = min(quotes, key=lambda q: q.source.amount.value_usd)
-
-                #destination_amount = destination_currency.amount(raw_amount=pay_order.destination_amount)
-
-                src = quote.source
-                dest = quote.destination
+                # use the receiving address that was set in the pay_order
                 destination_receiving_address = pay_order.destination_receiving_address
+
+            src = quote.source
+            dest = quote.destination
 
 
         # Create ChangeNow exchange
@@ -360,19 +357,17 @@ class PayOrderService(BaseService[PayOrder]):
         await self.update(pay_order)
 
         return PaymentDetailsResponse(
-            pay_order_id=pay_order.id,
+            payorder_id=str(pay_order.id),
             status=pay_order.status,
             expires_at=pay_order.expires_at,
-            source_currency=exch.source.currency,
-            deposit_amount=exch.source.amount,
-            deposit_address=exch.deposit_address,
-            refund_address=exch.refund_address,
-            destination_currency=None if is_sale else exch.destination.currency,
-            destination_amount=None if is_sale else exch.destination.amount,
-            destination_receiving_address=(
-                None if is_sale else exch.receiving_address
-            ),
+
+            source = exch.source,
+            destination = None if is_sale else exch.destination,    # dont show destination for sale
+            receiving_address = None if is_sale else exch.receiving_address,   # dont show destination for sale
+            deposit_address = exch.deposit_address,
+            refund_address = exch.refund_address,
         )
+
 
     async def process_payment_txhash(self, pay_order: PayOrder, tx_hash: str):
         """
