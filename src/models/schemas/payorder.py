@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
 from src.utils.chains.queries import get_chain_by_id
-from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount, ExchangeBase
+from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount, CurrencyWithAmount, ExchangeBase
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
 
@@ -49,7 +49,7 @@ class CreatePayOrderRequest(BaseModel):
         title="Destination value in USD (for sale orders)",
         ge=0,
     )
-    destination_receiving_address: Optional[str] = Field(
+    receiving_address: Optional[str] = Field(
         examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"],
         default=None,
         title="Destination receiving address",
@@ -62,7 +62,7 @@ class CreatePayOrderRequest(BaseModel):
         dest_currency = values.get("destination_currency")
         dest_amount = values.get("destination_amount")
         dest_value_usd = values.get("destination_value_usd")
-        dest_address = values.get("destination_receiving_address")
+        dest_address = values.get("receiving_address")
 
         if not dest_value_usd and not dest_amount:
             raise ValueError("destination_value_usd or destination_amount is required")
@@ -70,7 +70,7 @@ class CreatePayOrderRequest(BaseModel):
         if mode == PayOrderMode.DEPOSIT:
             # required dest_address, dest_currency and dest_value_usd or dest_amount
             if not dest_address:
-                raise ValueError("[Deposit mode]: destination_receiving_address is required")
+                raise ValueError("[Deposit mode]: receiving_address is required")
             if not dest_currency:
                 raise ValueError("[Deposit mode]: destination_currency is required")
   
@@ -98,8 +98,11 @@ class PayOrderResponse(BaseModel):
     #destination_currency: Optional[Currency] = Field(None, title="Destination currency", description="Currency to receive as result of the payOrder")
     #destination_value_usd: Optional[float] = Field(None, examples=[269.42], title="Destination value in USD", description="Amount of value in USD received by the recipient")
 
-    destination: Optional[CurrencyAmount] = Field(
+    destination: Optional[CurrencyWithAmount] = Field(
         default=None, title="Destination currency amount"
+    )
+    receiving_address: Optional[str] = Field(
+        default=None, title="Destination receiving address",examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"]
     )
 
 
