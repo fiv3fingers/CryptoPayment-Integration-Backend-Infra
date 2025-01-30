@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
 from src.utils.chains.queries import get_chain_by_id
-from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount, ExchangeBase, CurrencyToCurrencyQuote
+from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount, ExchangeBase
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
 
@@ -94,9 +94,13 @@ class PayOrderResponse(BaseModel):
         default_factory=PayOrderMetadata, title="PayOrder metadata"
     )
 
-    destination_amount: Optional[float] = Field(None, examples=[0.1], title="Destination amount (UI amount)")
-    destination_currency: Optional[Currency] = Field(None, title="Destination currency", description="Currency to receive as result of the payOrder")
-    destination_value_usd: Optional[float] = Field(None, examples=[269.42], title="Destination value in USD", description="Amount of value in USD received by the recipient")
+    #destination_amount: Optional[float] = Field(None, examples=[0.1], title="Destination amount (UI amount)")
+    #destination_currency: Optional[Currency] = Field(None, title="Destination currency", description="Currency to receive as result of the payOrder")
+    #destination_value_usd: Optional[float] = Field(None, examples=[269.42], title="Destination value in USD", description="Amount of value in USD received by the recipient")
+
+    destination: Optional[CurrencyAmount] = Field(
+        default=None, title="Destination currency amount"
+    )
 
 
 class CreateQuoteRequest(BaseModel):
