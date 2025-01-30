@@ -1,10 +1,8 @@
 import asyncio
-from typing import List, NamedTuple, TypeVar, Sequence, Union
-from dataclasses import dataclass
-from decimal import Decimal
+from typing import List, TypeVar, Sequence
 
 from src.utils.currencies.helpers import to_currency_base
-from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount, Quote
+from src.utils.currencies.types import Currency, CurrencyAmount, CurrencyBase, CurrencyWithAmount, CurrencyToCurrencyQuote
 from src.utils.logging import get_logger
 from src.services.changenow import ChangeNowService, ExchangeType
 from src.services.coingecko import CoinGeckoService
@@ -47,7 +45,7 @@ class QuoteService:
         source_currency: Currency,
         destination_currency: Currency,
         destination_amount: CurrencyAmount
-    ) -> Quote:
+    ) -> CurrencyToCurrencyQuote:
         """Get an exchange estimate for a currency pair.
 
         Uses ChangeNow to estimate how much source currency is needed for the
@@ -64,7 +62,7 @@ class QuoteService:
                 exchange_type=ExchangeType.REVERSE,
             )
 
-            return Quote(
+            return CurrencyToCurrencyQuote(
                 source=CurrencyWithAmount(
                     currency=source_currency, amount=source_amount
                 ),
@@ -84,7 +82,7 @@ class QuoteService:
         source_currency: Currency,
         destination_currencies: List[Currency],
         destination_value_usd: float,
-    ) -> Quote:
+    ) -> CurrencyToCurrencyQuote:
         """Find the best quote among multiple destination currencies.
 
         Returns the quote requiring the lowest source currency amount in USD terms.
@@ -128,7 +126,7 @@ class QuoteService:
         source_currencies: List[CurrencyType],
         destination_currencies: List[CurrencyType],
         destination_value_usd: float,
-    ) -> List[Quote]:
+    ) -> List[CurrencyToCurrencyQuote]:
         """Get quotes based on a desired USD value.
 
         For each source currency, finds the best destination currency that will
@@ -158,7 +156,7 @@ class QuoteService:
         source_currencies: List[CurrencyType],
         destination_currency: Currency,
         destination_amount: CurrencyAmount,
-    ) -> List[Quote]:
+    ) -> List[CurrencyToCurrencyQuote]:
         """Get quotes based on a desired destination amount.
 
         For each source currency, estimates how much would be needed to obtain

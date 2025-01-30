@@ -257,21 +257,27 @@ class Currency(CurrencyBase):
 
 """
 TODO: Find a fitting place for the following classes
+These classes are now used only for changenow exchanges/quotes
+but the idea is to use them for all exchanges/quotes
+
+Our deposits basically work as an exchange, so we reuse these models over there too
+
+No idea where to put them though
 """
-class CurrencyWithAmount(NamedTuple):
+
+class CurrencyWithAmount(BaseModel):
     currency: Currency
     amount: CurrencyAmount
 
-class Quote(NamedTuple):
+class CurrencyToCurrencyQuote(BaseModel):
     source: CurrencyWithAmount
-    destination: CurrencyWithAmount
+    destination: Optional[CurrencyWithAmount] = None
 
-class Exchange(NamedTuple):
-    source: CurrencyWithAmount
-    destination: CurrencyWithAmount
+class ExchangeBase(CurrencyToCurrencyQuote):
     refund_address: str
     deposit_address: str
-    receiving_address: str
-    id: str
+    receiving_address: Optional[str] = None
 
+class Exchange(ExchangeBase):
+    id: str
 

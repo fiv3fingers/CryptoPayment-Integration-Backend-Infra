@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 
 from src.utils.chains.queries import get_chain_by_id
-from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount
+from src.utils.currencies.types import CurrencyBase, Currency, CurrencyAmount, ExchangeBase, CurrencyToCurrencyQuote
 from src.models.enums import PayOrderMode, PayOrderStatus
 from src.utils.types import ChainId, ChainType
 
@@ -125,7 +125,8 @@ class CreateQuoteRequest(BaseModel):
 
         return values
 
-class CurrencyQuote(Currency):
+# used only for the rsponse of the quote endpoint List[SingleCurrencyQuote]
+class SingleCurrencyQuote(Currency):
     balance: CurrencyAmount
     required: CurrencyAmount
 
@@ -141,10 +142,10 @@ class PaymentDetailsRequest(BaseModel):
     refund_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
 
 
-class PaymentDetailsResponse(BaseModel):
+class PaymentDetailsResponse(ExchangeBase):
     """Response model for creating payment details for a PayOrder"""
 
-    pay_order_id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
+    payorder_id: str = Field(examples=["cm5h7ubkp0000v450cwvq6kc7"])
     status: PayOrderStatus = Field(
         examples=[PayOrderStatus.PENDING], title="PayOrder status"
     )
@@ -152,14 +153,4 @@ class PaymentDetailsResponse(BaseModel):
         examples=["2025-01-24T18:37:31.430985+01:00"], title="PayOrder expiration date"
     )
 
-    source_currency: Currency
-    deposit_amount: CurrencyAmount
-    deposit_address: str = Field(
-        examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"]
-    )
-    refund_address: str = Field(examples=["0x311e128453EFd91a4c131761d9d535fF6E0EEF90"])
 
-    # Deposits Only
-    destination_currency: Optional[Currency] = Field(default=None)
-    destination_amount: Optional[CurrencyAmount] = Field(default=None)
-    destination_receiving_address: Optional[str] = Field(default=None)

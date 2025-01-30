@@ -15,7 +15,7 @@ from src.models.schemas.payorder import (
     CreateQuoteRequest,
     PaymentDetailsRequest,
     PaymentDetailsResponse,
-    CurrencyQuote,
+    SingleCurrencyQuote,
 )
 from src.models.database_models import Organization
 from src.services.payorder import PayOrderService
@@ -49,7 +49,7 @@ async def create_payorder(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post("/{payorder_id}/quote", response_model=List[CurrencyQuote])
+@router.post("/{payorder_id}/quote", response_model=List[SingleCurrencyQuote])
 async def quote_payorder(
     payorder_id: str,
     req: CreateQuoteRequest,
@@ -87,21 +87,6 @@ async def create_payment_details(
     return resp
 
 
-@router.get("/{payorder_id}", response_model=PayOrderResponse)
-async def get_payorder(
-    payorder_id: str,
-    db: Session = Depends(get_db),
-    _: Organization = Depends(get_current_organization),
-):
-    """API Route for get a payorder by id"""
-
-    pay_order_service = PayOrderService(db)
-    pay_order = await pay_order_service.get(payorder_id)
-    if pay_order is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    return pay_order
-
-
 @router.get("/{payorder_id}/process", response_model=None)
 async def process_payorder(
     payorder_id: str,
@@ -130,7 +115,23 @@ async def process_payorder(
         pass
 
 
-#  Admin Routes
+
+
+@router.get("/{payorder_id}", response_model=PayOrderResponse)
+async def get_payorder(
+    payorder_id: str,
+    db: Session = Depends(get_db),
+    _: Organization = Depends(get_current_organization),
+):
+    """API Route for get a payorder by id"""
+
+    pay_order_service = PayOrderService(db)
+    pay_order = await pay_order_service.get(payorder_id)
+    if pay_order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    return pay_order
+
+
 @router.get("/", response_model=List[PayOrderResponse])
 async def get_orders(
     db: Session = Depends(get_db), org: Organization = Depends(get_current_organization)
