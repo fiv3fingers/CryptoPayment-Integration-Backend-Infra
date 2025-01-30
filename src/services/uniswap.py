@@ -1,15 +1,18 @@
 import os
 import aiohttp
+import asyncio
 from aiocache import Cache, cached
-from typing import Optional
-from web3 import Web3
+from typing import Optional, Union
+from eth_utils import to_checksum_address
+from web3 import Web3, AsyncWeb3
 
 from src.utils.chains.queries import get_chain_by_id
+from src.utils.currencies.types import Currency, CurrencyBase
 from src.utils.logging import get_logger
 from src.utils.types import ChainId, ServiceType
 from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI, \
-    uniswap_v3_Factory_ABI, uniswap_v3_quoter_ABI, uniswap_v3_pair_ABI
-from src.utils.uniswap.types import CONTRACT_ADDRESS, V3QuoterAddress
+    uniswap_v3_Factory_ABI, uniswap_v3_quoter_ABI, uniswap_v3_pool_ABI
+from src.utils.uniswap.types import CONTRACT_ADDRESS, V3_QUOTER_ADDRESS, NULL_ADDRESS
 
 ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY")
 logger = get_logger(__name__)
@@ -20,94 +23,100 @@ class UniswapService:
     A service to fetch quotes from Uniswap on EVM.
     """
 
-    def __init__(self, chain_id: Optional[ChainId] = ChainId.ETH):
+    def __init__(self, chain_id: ChainId):
         chain = get_chain_by_id(chain_id)
         self.chain_name = chain.get_alias(ServiceType.UNISWAP)
-        url = f"https://{self.chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
-        self.w3 = Web3(
-            Web3.HTTPProvider(url))
-        self.networkId = chain_id
+        self.decimal = chain.nativeCurrency.decimals
+        # url = f"https://{self.chain_name}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+        url = "https://hardworking-muddy-wish.quiknode.pro/5513598aadc4b76b20f85a2faef738ca00ecc948"
+        self.w3 = AsyncWeb3(Web3.AsyncHTTPProvider(url))
+        self.chain_id = chain_id
         self.v2factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][0],
                                                        abi=uniswap_v2_Factory_ABI)
         self.v2router_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][1], abi=uniswap_v2_router_ABI)
         self.v3factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[chain_id][2],
                                                        abi=uniswap_v3_Factory_ABI)
-        self.v3quoter_contract = self.w3.eth.contract(address=V3QuoterAddress, abi=uniswap_v3_quoter_ABI)
+        self.v3quoter_contract = self.w3.eth.contract(address=V3_QUOTER_ADDRESS, abi=uniswap_v3_quoter_ABI)
 
-    def _get_pair(self, token_a: str, token_b: str) -> str:
-        pair_address = self.v2factory_contract.functions.getPair(token_a, token_b).call()
+        self.session = None
+
+
+    def _float_to_uint256(self, amount: float) -> int:
+        factor = 10 ** self.decimal
+        return int(amount * factor)
+
+    async def _get_pair(self, currency_in: CurrencyBase, currency_out: CurrencyBase) -> Optional[str]:
+        v2factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[self.chain_id][0],
+                                                       abi=uniswap_v2_Factory_ABI)
+        pair_address = await v2factory_contract.functions.getPair(to_checksum_address(currency_in.address),
+                                                                 to_checksum_address(
+                                                                     currency_out.address)).call()  # Await the contract function call
+        if pair_address == NULL_ADDRESS:
+            logger.error(f"No pair found for {currency_in.address} and {currency_out.address}")
+            return None
         return pair_address
 
-    async def _get_pool(self, token_a: str, token_b: str) -> list:
-        url = f"https://api.dexscreener.com/token-pairs/v1/{self.chain_name}/{token_a}"
-        try:
-            async with self.session.get(
-                    url
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                return data
-        except Exception as e:
-            logger.error(f"Failed to get pool addresses from dexscreener {str(e)}")
-            return []
+    async def _get_pool(self, currency_in: CurrencyBase, currency_out: CurrencyBase) -> dict:
+        fee_list = [100, 500, 3000, 10000]
+        v3factory_contract = self.w3.eth.contract(address=CONTRACT_ADDRESS[self.chain_id][2],
+                                                  abi=uniswap_v3_Factory_ABI)
+        pools = []
+        for fee in fee_list:
+            pool = await v3factory_contract.functions.getPool(
+                to_checksum_address(currency_in.address),
+                to_checksum_address(currency_out.address),
+                fee
+            ).call()
+            pools.append((fee, pool))
 
+        # Create a dictionary with valid pools
+        return {fee: pool for fee, pool in pools if pool != NULL_ADDRESS}
 
-    async def _get_amount_out(self, amount: float, token_a: str, token_b: str, sqrt_limit: int = 0):
-        pools = await self._get_pool(token_a, token_b)
+    async def _get_amount_out(self, amount: int, currency_in: CurrencyBase, currency_out: CurrencyBase,
+                              sqrt_limit: int = 0):
+        if not self.session or self.session.closed:
+            self.session = aiohttp.ClientSession()
+
         quotes = []
-        for pool in pools:
-            labels = pool.get("labels", [])
-            quote_token_addr = pool.get("quoteToken", {}).get("address", "").lower()
-            if quote_token_addr == token_b.lower():
-                if "v3" in labels:
-                    pair_address = pool.get("pairAddress", "").lower()
-                    pair_contract = self.w3.eth.contract(address=pair_address, abi=uniswap_v3_pair_ABI)
-                    fee = pair_contract.functions.fee().call()
-                    expected_out_amount = self.v3quoter_contract.functions.quoteExactOutputSingle(token_a, token_b, fee, amount, sqrt_limit)
-                    quotes.append(expected_out_amount)
-                elif "v2" in labels:
-                    pair_address = self._get_pair(token_a, token_b)
-                    if not pair_address:
-                        logger.error(f"Failed to get pair address {pair_address}")
-                        continue
-                    pair_contract = self.w3.eth.contract(address=pair_address, abi=uniswap_v2_pair_ABI)
-                    reserves = pair_contract.functions.getReserves().call()
-                    if not reserves:
-                        logger.error(f"Failed to get reserve {reserves}")
-                        continue
-                    expected_out_amount = self.v2router_contract.functions.getAmountOut(amount, reserves[0], reserves[1]).call()
-                    quotes.append(expected_out_amount)
-                else:
-                    logger.error("No pool for this token pair")
+        pair_address = await self._get_pair(currency_in, currency_out)
+        if not pair_address:
+            logger.error(f"Failed to get pair address {pair_address}")
+            return 0
+        pair_contract = self.w3.eth.contract(address=pair_address, abi=uniswap_v2_pair_ABI)
+        reserves = await pair_contract.functions.getReserves().call()
+        if not reserves:
+            logger.error(f"Failed to get reserve {reserves}")
+            return 0
+        expected_out_amount = await self.v2router_contract.functions.getAmountOut(amount, reserves[1], reserves[0]).call()
+        quotes.append(expected_out_amount)
 
+        pool_fee_map = await self._get_pool(currency_in, currency_out)
+
+        best_liquidity = 0
+        best_fee = float('inf')  # Start with an infinitely high fee
+        for fee, pool in pool_fee_map.items():
+            pool_contract = self.w3.eth.contract(address=pool, abi=uniswap_v3_pool_ABI)
+            liquidity = await pool_contract.functions.liquidity().call()
+            if liquidity > best_liquidity or (liquidity == best_liquidity and fee < best_fee):
+                best_liquidity = liquidity
+                best_fee = fee
+        v3quoter_contract =  self.w3.eth.contract(address=V3_QUOTER_ADDRESS, abi=uniswap_v3_quoter_ABI)
+        expected_out_amount_v3 = await v3quoter_contract.functions.quoteExactOutputSingle(
+            to_checksum_address(currency_in.address), to_checksum_address(currency_out.address), best_fee, amount, sqrt_limit
+        ).call()
+        quotes.append(expected_out_amount_v3)
         return min(quotes)
 
     async def __aenter__(self):
-        """Context manager entry - create aiohttp session if needed."""
-        if not self.session or self.session.closed:
-            self.session = aiohttp.ClientSession()
         return self
 
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - close session."""
-        if self.session and not self.session.closed:
-            await self.session.close()
+        await self.session.close()
 
-    @cached(
-        ttl=900,  # 15 minutes
-        cache=Cache.MEMORY,
-    )
-    async def get_quote(
-            self,
-            input_token: str,
-            output_token: str,
-            amount: int,
-    ) -> float:
 
-        if not self.session or self.session.closed:
-            self.session = aiohttp.ClientSession()
-
-        """Get a quote for a Uniswap"""
-        amount_out = self._get_amount_out(amount, input_token, output_token)
-
+    @cached(ttl=900, cache=Cache.MEMORY)
+    async def get_quote(self, currency_in: Union[Currency, CurrencyBase], currency_out: Union[Currency, CurrencyBase],
+                        amount: int) -> int:
+        amount_out = await self._get_amount_out(amount, currency_in, currency_out)
         return amount_out

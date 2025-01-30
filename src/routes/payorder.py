@@ -25,10 +25,10 @@ router = APIRouter(prefix="/pay-orders", tags=["Pay Orders"])
 
 @router.post("/", response_model=PayOrderResponse)
 async def create_payorder(
-    req: CreatePayOrderRequest,
-    db: Session = Depends(get_db),
-    api_key=Depends(api_key_header),
-    auth_header=Depends(authorization_header),
+        req: CreatePayOrderRequest,
+        db: Session = Depends(get_db),
+        api_key=Depends(api_key_header),
+        auth_header=Depends(authorization_header),
 ):
     if req.mode == PayOrderMode.DEPOSIT:
         org = get_current_organization(api_key, db) # raise 401 if invalid api key
@@ -45,10 +45,10 @@ async def create_payorder(
 
 @router.post("/{payorder_id}/quote", response_model=List[SingleCurrencyQuote])
 async def quote_payorder(
-    payorder_id: str,
-    req: CreateQuoteRequest,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db),
+        payorder_id: str,
+        req: CreateQuoteRequest,
+        org: Organization = Depends(get_current_organization),
+        db: Session = Depends(get_db),
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
@@ -64,10 +64,10 @@ async def quote_payorder(
 
 @router.post("/{payorder_id}/payment-details", response_model=PaymentDetailsResponse)
 async def create_payment_details(
-    payorder_id: str,
-    req: PaymentDetailsRequest,
-    org: Organization = Depends(get_current_organization),
-    db: Session = Depends(get_db),
+        payorder_id: str,
+        req: PaymentDetailsRequest,
+        org: Organization = Depends(get_current_organization),
+        db: Session = Depends(get_db),
 ):
     """API Route for creating the final quote including deposit details to submit the transaction"""
 
@@ -91,10 +91,10 @@ async def create_payment_details(
 
 @router.get("/{payorder_id}/process", response_model=None)
 async def process_payorder(
-    payorder_id: str,
-    tx_hash: str,
-    db: Session = Depends(get_db),
-    _: Organization = Depends(get_current_organization),
+        payorder_id: str,
+        tx_hash: str,
+        db: Session = Depends(get_db),
+        _: Organization = Depends(get_current_organization),
 ):
     """API Route for processing a payorder"""
 
@@ -151,8 +151,6 @@ async def get_orders(
 ):
     """API Route for get all payorders of an organization"""
 
-    # TODO: add pagination
-    # TODO: only from dashboard server
 
     try:
         payorder_service = PayOrderService(db)

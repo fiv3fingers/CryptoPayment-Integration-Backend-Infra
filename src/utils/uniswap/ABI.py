@@ -568,7 +568,7 @@ uniswap_v3_quoter_ABI = [
         "type": "function"}
 ]
 
-uniswap_v3_pair_ABI = [
+uniswap_v3_pool_ABI = [
     {"inputs": [], "stateMutability": "nonpayable", "type": "constructor"}, {"anonymous": False, "inputs": [
         {"indexed": True, "internalType": "address", "name": "owner", "type": "address"},
         {"indexed": True, "internalType": "int24", "name": "tickLower", "type": "int24"},
