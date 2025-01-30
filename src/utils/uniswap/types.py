@@ -3,20 +3,6 @@ from typing import Dict, Tuple
 
 from src.utils.types import ChainId
 
-
-class NetworkId(int, Enum):
-    MAINNET = 20
-    SEPOLIA = 21
-    ARBITRUM = 22
-    AVALANCHE = 23
-    BNBCHAIN = 24
-    BASE = 25
-    OPTIMISM = 26
-    POLYGON = 27
-    BLAST = 28
-    ZORA = 29
-    WORLDCHAIN = 30
-
 class V2FactoryAddress(str, Enum):
     MAINNET = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
     SEPOLIA = "0xF62c03E08ada871A0bEb309762E260a7a6a880E6"
@@ -75,6 +61,8 @@ class V3RouterAddress(str, Enum):
     WORLDCHAIN = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 
     CELO = "0xC73d61d192FB994157168Fb56730FdEc64C9Cb8F"
+
+V3QuoterAddress = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
 
 
 CONTRACT_ADDRESS: Dict[ChainId, Tuple[V2FactoryAddress, V2RouterAddress, V3FactoryAddress, V3RouterAddress]] = {

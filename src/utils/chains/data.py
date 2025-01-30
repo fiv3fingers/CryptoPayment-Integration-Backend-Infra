@@ -34,6 +34,7 @@ CHAIN_DATA_MAP = {
         image_uri="https://cryptologos.cc/logos/ethereum-eth-logo.png",
         aliases={
             ServiceType.COINGECKO: "ethereum",
+            ServiceType.UNISWAP: "ethereum",
             ServiceType.CHANGENOW: "eth",
             ServiceType.ALCHEMY: "eth-mainnet",
         },
