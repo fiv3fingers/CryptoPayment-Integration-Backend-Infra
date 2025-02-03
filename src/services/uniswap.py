@@ -12,7 +12,7 @@ from src.utils.logging import get_logger
 from src.utils.types import ChainId, ServiceType
 from src.utils.uniswap.ABI import uniswap_v2_Factory_ABI, uniswap_v2_router_ABI, uniswap_v2_pair_ABI, \
     uniswap_v3_Factory_ABI, uniswap_v3_quoter_ABI, uniswap_v3_pool_ABI
-from src.utils.uniswap.types import CONTRACT_ADDRESS, V3_QUOTER_ADDRESS, NULL_ADDRESS
+from src.utils.uniswap.data import CONTRACT_ADDRESS, V3_QUOTER_ADDRESS, NULL_ADDRESS
 
 ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY")
 logger = get_logger(__name__)
@@ -116,7 +116,7 @@ class UniswapService:
 
 
     @cached(ttl=900, cache=Cache.MEMORY)
-    async def get_quote(self, currency_in: Union[Currency, CurrencyBase], currency_out: Union[Currency, CurrencyBase],
+    async def get_quote(self, currency_in: CurrencyBase, currency_out: CurrencyBase,
                         amount: int) -> int:
         amount_out = await self._get_amount_out(amount, currency_in, currency_out)
         return amount_out
